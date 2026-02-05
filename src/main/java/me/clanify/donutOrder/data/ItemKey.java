@@ -149,6 +149,18 @@ public final class ItemKey {
                 return false;
             }
         }
+
+        // CRITICAL FIX: Anti-Scam / Anti-Crap-Dump
+        // Ensure that if the item is damageable (tools, armor), it MUST be fully
+        // repaired (damage 0).
+        // This prevents players from delivering broken/used items to fulfill orders.
+        ItemMeta meta = stack.getItemMeta();
+        if (meta instanceof org.bukkit.inventory.meta.Damageable) {
+            if (((org.bukkit.inventory.meta.Damageable) meta).getDamage() > 0) {
+                return false;
+            }
+        }
+
         return true;
     }
 

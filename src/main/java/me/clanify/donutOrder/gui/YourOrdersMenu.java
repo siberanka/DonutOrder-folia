@@ -133,4 +133,17 @@ public class YourOrdersMenu
         TaskUtil.runEntityLater((Plugin) this.pl, (Entity) this.p, () -> new OrdersMainMenu(this.pl, this.p).open(),
                 1L);
     }
+
+    @Override
+    public void onDrag(org.bukkit.event.inventory.InventoryDragEvent e) {
+        if (e.getView().getTopInventory().getHolder() != this) {
+            return;
+        }
+        for (int slot : e.getRawSlots()) {
+            if (slot < e.getView().getTopInventory().getSize()) {
+                e.setCancelled(true);
+                return;
+            }
+        }
+    }
 }

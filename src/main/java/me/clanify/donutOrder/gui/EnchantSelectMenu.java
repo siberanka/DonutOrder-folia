@@ -50,8 +50,8 @@ import org.bukkit.metadata.MetadataValue;
 import org.bukkit.plugin.Plugin;
 
 public class EnchantSelectMenu
-implements InventoryHolder,
-MenuOwner {
+        implements InventoryHolder,
+        MenuOwner {
     private final DonutOrder pl;
     private final Player p;
     private final ItemStack base;
@@ -79,10 +79,13 @@ MenuOwner {
         int size = this.rows() * 9;
         int bottomStart = (this.rows() - 1) * 9;
         EnchantmentsManager.GUI gui = this.pl.ench().gui();
-        HashSet<Integer> reserved = new HashSet<Integer>(List.of(Integer.valueOf(gui.slotItem), Integer.valueOf(gui.slotCancel), Integer.valueOf(gui.slotPrev), Integer.valueOf(gui.slotNext), Integer.valueOf(gui.slotConfirm)));
+        HashSet<Integer> reserved = new HashSet<Integer>(
+                List.of(Integer.valueOf(gui.slotItem), Integer.valueOf(gui.slotCancel), Integer.valueOf(gui.slotPrev),
+                        Integer.valueOf(gui.slotNext), Integer.valueOf(gui.slotConfirm)));
         ArrayList<Integer> list = new ArrayList<Integer>();
         for (int i = 0; i < size; ++i) {
-            if (i >= bottomStart || reserved.contains(i)) continue;
+            if (i >= bottomStart || reserved.contains(i))
+                continue;
             list.add(i);
         }
         this.gridSlots = list;
@@ -91,10 +94,10 @@ MenuOwner {
     private boolean canAnyEnchant(ItemStack item) {
         for (Enchantment e : Enchantment.values()) {
             try {
-                if (e == null || !e.canEnchantItem(item)) continue;
+                if (e == null || !e.canEnchantItem(item))
+                    continue;
                 return true;
-            }
-            catch (Throwable throwable) {
+            } catch (Throwable throwable) {
                 // empty catch block
             }
         }
@@ -103,14 +106,17 @@ MenuOwner {
 
     public void open() {
         if (!this.pl.ench().hasOptionsFor(this.base.getType()) || !this.canAnyEnchant(this.base)) {
-            this.p.setMetadata("donutorder.tmpChosenStack", (MetadataValue)new FixedMetadataValue((Plugin)this.pl, (Object)this.base.clone()));
-            this.pl.chat().session((UUID)this.p.getUniqueId()).chosenItem = this.base.getType().name();
+            this.p.setMetadata("donutorder.tmpChosenStack",
+                    (MetadataValue) new FixedMetadataValue((Plugin) this.pl, (Object) this.base.clone()));
+            this.pl.chat().session((UUID) this.p.getUniqueId()).chosenItem = this.base.getType().name();
             new NewOrderMenu(this.pl, this.p).open();
             return;
         }
-        this.inv = Bukkit.createInventory((InventoryHolder)this, (int)(this.rows() * 9), (String)Utils.formatColors(this.pl.ench().gui().title));
+        this.inv = Bukkit.createInventory((InventoryHolder) this, (int) (this.rows() * 9),
+                (String) Utils.formatColors(this.pl.ench().gui().title));
         this.buildGridSlots();
-        ArrayList<EnchantmentsManager.EnchantOption> all = new ArrayList<EnchantmentsManager.EnchantOption>(this.pl.ench().optionsFor(this.base.getType()));
+        ArrayList<EnchantmentsManager.EnchantOption> all = new ArrayList<EnchantmentsManager.EnchantOption>(
+                this.pl.ench().optionsFor(this.base.getType()));
         all.removeIf(opt -> opt.ench == null || !opt.ench.canEnchantItem(this.base));
         this.options = all;
         this.render();
@@ -126,7 +132,7 @@ MenuOwner {
         ItemStack preview = this.base.clone();
         ItemMeta pm = preview.getItemMeta();
         if (pm != null) {
-            pm.removeItemFlags(new ItemFlag[]{ItemFlag.HIDE_ENCHANTS});
+            pm.removeItemFlags(new ItemFlag[] { ItemFlag.HIDE_ENCHANTS });
             for (Map.Entry<Enchantment, Integer> en : this.selected.entrySet()) {
                 pm.addEnchant(en.getKey(), en.getValue().intValue(), true);
             }
@@ -145,8 +151,10 @@ MenuOwner {
         }
         for (EnchantmentsManager.EnchantOption opt : this.options) {
             int optPage = Math.max(1, opt.page);
-            if (optPage - 1 != this.page || opt.slot == null || opt.slot < 0 || opt.slot >= this.gridSlots.size()) continue;
-            boolean selectedAlready = this.selected.containsKey(opt.ench) && Objects.equals(this.selected.get(opt.ench), opt.level);
+            if (optPage - 1 != this.page || opt.slot == null || opt.slot < 0 || opt.slot >= this.gridSlots.size())
+                continue;
+            boolean selectedAlready = this.selected.containsKey(opt.ench)
+                    && Objects.equals(this.selected.get(opt.ench), opt.level);
             boolean conflicts = !selectedAlready && this.conflictsWithCurrent(opt.ench);
             String stateLine = msg.loreSelect;
             if (selectedAlready) {
@@ -164,14 +172,19 @@ MenuOwner {
             int bottom;
             filler = this.makeButton(gui.fillerMat, gui.fillerName, List.of());
             for (int s = bottom = (this.rows() - 1) * 9; s < bottom + 9; ++s) {
-                if (s == gui.slotPrev || s == gui.slotNext || s == gui.slotConfirm || s == gui.slotCancel || this.inv.getItem(s) != null) continue;
+                if (s == gui.slotPrev || s == gui.slotNext || s == gui.slotConfirm || s == gui.slotCancel
+                        || this.inv.getItem(s) != null)
+                    continue;
                 this.inv.setItem(s, filler);
             }
         }
         if (gui.extraFillerEnabled) {
             filler = this.makeButton(gui.extraFillerMat, gui.extraFillerName, List.of());
             for (Integer fs : gui.extraFillerSlots) {
-                if (fs == null || fs < 0 || fs >= this.rows() * 9 || fs == gui.slotPrev || fs == gui.slotNext || fs == gui.slotConfirm || fs == gui.slotCancel || fs == gui.slotItem || this.inv.getItem(fs.intValue()) != null) continue;
+                if (fs == null || fs < 0 || fs >= this.rows() * 9 || fs == gui.slotPrev || fs == gui.slotNext
+                        || fs == gui.slotConfirm || fs == gui.slotCancel || fs == gui.slotItem
+                        || this.inv.getItem(fs.intValue()) != null)
+                    continue;
                 this.inv.setItem(fs.intValue(), filler);
             }
         }
@@ -180,10 +193,10 @@ MenuOwner {
     private boolean conflictsWithCurrent(Enchantment next) {
         for (Enchantment e : this.selected.keySet()) {
             try {
-                if (!next.conflictsWith(e) && !e.conflictsWith(next)) continue;
+                if (!next.conflictsWith(e) && !e.conflictsWith(next))
+                    continue;
                 return true;
-            }
-            catch (Throwable throwable) {
+            } catch (Throwable throwable) {
             }
         }
         return false;
@@ -222,17 +235,19 @@ MenuOwner {
             ItemStack out = this.base.clone();
             ItemMeta om = out.getItemMeta();
             if (om != null) {
-                om.removeItemFlags(new ItemFlag[]{ItemFlag.HIDE_ENCHANTS});
+                om.removeItemFlags(new ItemFlag[] { ItemFlag.HIDE_ENCHANTS });
                 for (Map.Entry<Enchantment, Integer> en : this.selected.entrySet()) {
                     om.addEnchant(en.getKey(), en.getValue().intValue(), true);
                 }
                 out.setItemMeta(om);
             }
             if (this.selected.isEmpty()) {
-                this.p.setMetadata("donutorder.skipEnchantOnce", (MetadataValue)new FixedMetadataValue((Plugin)this.pl, (Object)true));
+                this.p.setMetadata("donutorder.skipEnchantOnce",
+                        (MetadataValue) new FixedMetadataValue((Plugin) this.pl, (Object) true));
             }
-            this.pl.chat().session((UUID)this.p.getUniqueId()).chosenItem = this.base.getType().name();
-            this.p.setMetadata("donutorder.tmpChosenStack", (MetadataValue)new FixedMetadataValue((Plugin)this.pl, (Object)out));
+            this.pl.chat().session((UUID) this.p.getUniqueId()).chosenItem = this.base.getType().name();
+            this.p.setMetadata("donutorder.tmpChosenStack",
+                    (MetadataValue) new FixedMetadataValue((Plugin) this.pl, (Object) out));
             this.pl.cfg().play(this.p, "sounds.click", "UI_BUTTON_CLICK", 1.0f, 1.0f);
             new NewOrderMenu(this.pl, this.p).open();
             return;
@@ -241,7 +256,8 @@ MenuOwner {
         if (gridIndex >= 0) {
             for (EnchantmentsManager.EnchantOption opt : this.options) {
                 int optPage = Math.max(1, opt.page);
-                if (optPage - 1 != this.page || opt.slot == null || opt.slot != gridIndex) continue;
+                if (optPage - 1 != this.page || opt.slot == null || opt.slot != gridIndex)
+                    continue;
                 this.toggle(opt);
                 return;
             }
@@ -250,7 +266,8 @@ MenuOwner {
 
     private void toggle(EnchantmentsManager.EnchantOption opt) {
         boolean already;
-        boolean bl = already = this.selected.containsKey(opt.ench) && Objects.equals(this.selected.get(opt.ench), opt.level);
+        boolean bl = already = this.selected.containsKey(opt.ench)
+                && Objects.equals(this.selected.get(opt.ench), opt.level);
         if (already) {
             this.selected.remove(opt.ench);
             this.pl.cfg().play(this.p, "sounds.click", "UI_BUTTON_CLICK", 1.0f, 1.0f);
@@ -288,12 +305,11 @@ MenuOwner {
 
     private ItemStack makeBookOption(EnchantmentsManager.EnchantOption opt, List<String> lore) {
         ItemStack it = new ItemStack(Material.ENCHANTED_BOOK);
-        EnchantmentStorageMeta sm = (EnchantmentStorageMeta)it.getItemMeta();
+        EnchantmentStorageMeta sm = (EnchantmentStorageMeta) it.getItemMeta();
         if (sm != null) {
             try {
                 sm.addStoredEnchant(opt.ench, opt.level, true);
-            }
-            catch (Throwable throwable) {
+            } catch (Throwable throwable) {
                 // empty catch block
             }
             if (lore != null && !lore.isEmpty()) {
@@ -303,9 +319,21 @@ MenuOwner {
                 }
                 sm.setLore(ll);
             }
-            it.setItemMeta((ItemMeta)sm);
+            it.setItemMeta((ItemMeta) sm);
         }
         return it;
     }
-}
 
+    @Override
+    public void onDrag(org.bukkit.event.inventory.InventoryDragEvent e) {
+        if (e.getView().getTopInventory().getHolder() != this) {
+            return;
+        }
+        for (int slot : e.getRawSlots()) {
+            if (slot < e.getView().getTopInventory().getSize()) {
+                e.setCancelled(true);
+                return;
+            }
+        }
+    }
+}

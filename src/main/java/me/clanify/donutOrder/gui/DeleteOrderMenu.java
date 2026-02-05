@@ -30,8 +30,8 @@ import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.plugin.Plugin;
 
 public class DeleteOrderMenu
-implements InventoryHolder,
-MenuOwner {
+        implements InventoryHolder,
+        MenuOwner {
     private final DonutOrder pl;
     private final Player p;
     private final Order order;
@@ -49,9 +49,13 @@ MenuOwner {
 
     public void open() {
         int rows = this.pl.cfg().rows("delete", 3);
-        this.inv = Bukkit.createInventory((InventoryHolder)this, (int)(rows * 9), (String)this.pl.cfg().title("delete", "&#44b3ffOrders -> Delete Order"));
-        this.inv.setItem(this.pl.cfg().slot("gui.delete.items.back", 10), this.pl.cfg().button("gui.delete.items.back", "RED_STAINED_GLASS_PANE", "&cBack", List.of("&fClick to go back")));
-        this.inv.setItem(this.pl.cfg().slot("gui.delete.items.confirm", 16), this.pl.cfg().button("gui.delete.items.confirm", "LIME_STAINED_GLASS_PANE", "&aCONFIRM", List.of("&fClick to delete this order!")));
+        this.inv = Bukkit.createInventory((InventoryHolder) this, (int) (rows * 9),
+                (String) this.pl.cfg().title("delete", "&#44b3ffOrders -> Delete Order"));
+        this.inv.setItem(this.pl.cfg().slot("gui.delete.items.back", 10), this.pl.cfg().button("gui.delete.items.back",
+                "RED_STAINED_GLASS_PANE", "&cBack", List.of("&fClick to go back")));
+        this.inv.setItem(this.pl.cfg().slot("gui.delete.items.confirm", 16),
+                this.pl.cfg().button("gui.delete.items.confirm", "LIME_STAINED_GLASS_PANE", "&aCONFIRM",
+                        List.of("&fClick to delete this order!")));
         this.p.openInventory(this.inv);
         this.pl.cfg().play(this.p, "sounds.open", "BLOCK_CHEST_OPEN", 0.7f, 1.0f);
     }
@@ -86,13 +90,25 @@ MenuOwner {
         if (e.getInventory().getHolder() != this) {
             return;
         }
-        Player pp = (Player)e.getPlayer();
-        TaskUtil.runEntityLater((Plugin)this.pl, (Entity)pp, () -> {
+        Player pp = (Player) e.getPlayer();
+        TaskUtil.runEntityLater((Plugin) this.pl, (Entity) pp, () -> {
             InventoryHolder holder = pp.getOpenInventory().getTopInventory().getHolder();
             if (!(holder instanceof MenuOwner)) {
                 new YourOrdersMenu(this.pl, pp).open();
             }
         }, 1L);
     }
-}
 
+    @Override
+    public void onDrag(org.bukkit.event.inventory.InventoryDragEvent e) {
+        if (e.getView().getTopInventory().getHolder() != this) {
+            return;
+        }
+        for (int slot : e.getRawSlots()) {
+            if (slot < e.getView().getTopInventory().getSize()) {
+                e.setCancelled(true);
+                return;
+            }
+        }
+    }
+}

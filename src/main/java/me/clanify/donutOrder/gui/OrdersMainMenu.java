@@ -335,4 +335,17 @@ public class OrdersMainMenu
     @Override
     public void onClose(InventoryCloseEvent e) {
     }
+
+    @Override
+    public void onDrag(org.bukkit.event.inventory.InventoryDragEvent e) {
+        if (e.getView().getTopInventory().getHolder() != this) {
+            return;
+        }
+        for (int slot : e.getRawSlots()) {
+            if (slot < e.getView().getTopInventory().getSize()) {
+                e.setCancelled(true);
+                return;
+            }
+        }
+    }
 }

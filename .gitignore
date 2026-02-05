@@ -1,0 +1,27 @@
+# Maven
+target/
+*.class
+dependency-reduced-pom.xml
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+.factorypath
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Runtime / Generated (Root only)
+/config.yml
+*.log
+*.jar
+/run.bat
+/run.sh
+usercache.json
+version_history.json
+

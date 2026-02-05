@@ -20,6 +20,7 @@
  */
 package me.clanify.donutOrder.gui;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import me.clanify.donutOrder.DonutOrder;
@@ -90,6 +91,24 @@ public class CollectItemsMenu
             new YourOrdersMenu(this.pl, this.p).open();
             return;
         }
+
+        // Security: Prevent multiple players (or same player glitch) from opening the
+        // same storage
+        for (Player other : Bukkit.getOnlinePlayers()) {
+            if (other.equals(this.p))
+                continue;
+            Inventory top = other.getOpenInventory().getTopInventory();
+            if (top != null && top.getHolder() instanceof CollectItemsMenu) {
+                CollectItemsMenu m = (CollectItemsMenu) top.getHolder();
+                if (m.order.id.equals(this.order.id)) {
+                    this.p.sendMessage(me.clanify.donutOrder.Utils
+                            .formatColors("&cThis order is currently being viewed by someone else."));
+                    this.p.closeInventory();
+                    return;
+                }
+            }
+        }
+
         int rows = this.rows();
         int per = this.perPage();
         int max = this.maxPage();
@@ -126,6 +145,8 @@ public class CollectItemsMenu
         this.pl.cfg().play(this.p, "sounds.open", "BLOCK_CHEST_OPEN", 0.7f, 1.0f);
     }
 
+    // ... (onClick remains same) ...
+
     @Override
     public void onClick(InventoryClickEvent e) {
         if (e.getView().getTopInventory().getHolder() != this) {
@@ -141,7 +162,6 @@ public class CollectItemsMenu
         int slot = e.getSlot();
         if (clickedTop && slot >= (rows - 1) * 9) {
             e.setCancelled(true);
-            // Prevent spam clicking
             long now = System.currentTimeMillis();
             if (now - lastClickTime < CLICK_COOLDOWN_MS) {
                 return;
@@ -170,8 +190,9 @@ public class CollectItemsMenu
             }
             if (slot == drop) {
                 this.dropCurrentPageInGui();
-                this.flushCurrentPageToStorage();
-                this.pl.orders().saveOrder(this.order);
+                // dropCurrentPageInGui now handles saving/flushing inside itself to ensure safe
+                // ordering
+                // re-open triggers refresh
                 this.pl.cfg().play(this.p, "sounds.click", "UI_BUTTON_CLICK", 1.0f, 1.0f);
                 this.internalPageSwitch = true;
                 TaskUtil.runEntityLater((Plugin) this.pl, (Entity) this.p,
@@ -213,6 +234,7 @@ public class CollectItemsMenu
         e.setCancelled(true);
     }
 
+    // ... (onDrag, onClose, flushCurrentPageToStorage remain same) ...
     @Override
     public void onDrag(InventoryDragEvent e) {
         if (e.getView().getTopInventory().getHolder() != this) {
@@ -280,12 +302,27 @@ public class CollectItemsMenu
     private void dropCurrentPageInGui() {
         int per = this.perPage();
         Location eye = this.p.getEyeLocation();
-        for (int i = 0; i < per; ++i) {
+        List<ItemStack> toDrop = new ArrayList<>();
+
+        // 1. Collect items to drop and clear GUI
+        for (int i = 0; i < per; i++) {
             ItemStack cur = this.inv.getItem(i);
-            if (cur == null || cur.getType() == Material.AIR)
-                continue;
-            this.inv.clear(i);
-            Item drop = this.p.getWorld().dropItem(eye, cur);
+            if (cur != null && cur.getType() != Material.AIR && cur.getAmount() > 0) {
+                toDrop.add(cur.clone());
+                this.inv.setItem(i, null); // Clear GUI immediately
+            }
+        }
+
+        // 2. Flush empty GUI to storage (removing items from storage)
+        this.flushCurrentPageToStorage();
+
+        // 3. Trigger Save (Async) - Committing the removal (loss)
+        this.pl.orders().saveOrder(this.order);
+
+        // 4. Drop items (Give)
+        // If crash happens between 3 and 4 -> Items deleted (Safety over Dupe)
+        for (ItemStack item : toDrop) {
+            Item drop = this.p.getWorld().dropItem(eye, item);
             drop.setVelocity(eye.getDirection().multiply(0.25));
         }
     }

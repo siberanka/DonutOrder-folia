@@ -13,6 +13,7 @@ package me.clanify.donutOrder.cmd;
 import java.util.ArrayList;
 import java.util.List;
 import me.clanify.donutOrder.DonutOrder;
+import me.clanify.donutOrder.Utils;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -20,8 +21,8 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 
 public class DonutOrderCommand
-implements CommandExecutor,
-TabCompleter {
+        implements CommandExecutor,
+        TabCompleter {
     private final DonutOrder pl;
 
     public DonutOrderCommand(DonutOrder pl) {
@@ -30,12 +31,13 @@ TabCompleter {
 
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
         if (args.length == 0) {
-            sender.sendMessage(String.valueOf(ChatColor.RED) + "Usage: /" + label + " reload");
+            sender.sendMessage(Utils.formatColors(pl.cfg().cfg().getString("messages.usage", "&cUsage: /orders")));
             return true;
         }
         if (args[0].equalsIgnoreCase("reload")) {
             if (!sender.hasPermission("donutorder.admin")) {
-                sender.sendMessage(String.valueOf(ChatColor.RED) + "No permission.");
+                sender.sendMessage(
+                        Utils.formatColors(pl.cfg().cfg().getString("messages.no_permission", "&cNo permission.")));
                 return true;
             }
             this.pl.cfg().reload();
@@ -43,10 +45,12 @@ TabCompleter {
             if (this.pl.ench() != null) {
                 this.pl.ench().reload();
             }
-            sender.sendMessage(String.valueOf(ChatColor.GREEN) + "DonutOrder reloaded.");
+            sender.sendMessage(
+                    Utils.formatColors(pl.cfg().cfg().getString("messages.reloaded", "&aDonutOrder reloaded.")));
             return true;
         }
-        sender.sendMessage(String.valueOf(ChatColor.RED) + "Unknown subcommand.");
+        sender.sendMessage(
+                Utils.formatColors(pl.cfg().cfg().getString("messages.unknown_command", "&cUnknown subcommand.")));
         return true;
     }
 
@@ -58,4 +62,3 @@ TabCompleter {
         return out;
     }
 }
-

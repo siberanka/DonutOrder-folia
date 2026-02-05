@@ -130,6 +130,15 @@ public final class SignInputUtil {
             CALLBACK.put(uuid, callback);
         }
         player.setMetadata(META_SIGN_INPUT, (MetadataValue) new FixedMetadataValue((Plugin) plugin, (Object) true));
+
+        // Timeout task to prevent indefinite editing state
+        me.clanify.donutOrder.util.TaskUtil.runEntityLater(plugin, player, () -> {
+            if (PLUGINS.containsKey(uuid)) {
+                SignInputUtil.cancel(player);
+                player.sendMessage(ChatColor.RED + "Sign input timed out.");
+            }
+        }, 900L); // 45 seconds timeout
+
         Location signLoc = placement.loc.clone();
         BlockData old = placement.oldData;
         Scheduler.runEntity((Plugin) plugin, player, () -> ((Player) player).closeInventory());

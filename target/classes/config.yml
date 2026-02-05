@@ -7,7 +7,11 @@ messages:
   cannot_afford: "&#9e9e9eYou cannot afford this &#16bf6d(&#9e9e9e$&#16bf6d${total}&#16bf6d&#9e9e9e)&#9e9e9e."
   order_full: "&#9e9e9eOrder is &#16bf6dfull&#9e9e9e."
   received_actionbar: "&#16bf6d{player} &#9e9e9ehas delivered you &#16bf6d{amount} {item}&#9e9e9e!"
-
+  usage: "&cUsage: /orders"
+  reload_usage: "&cUsage: /donutorder reload"
+  no_permission: "&cNo permission."
+  reloaded: "&aDonutOrder reloaded."
+  unknown_command: "&cUnknown subcommand."
 
 search-sign:
   lines:
@@ -309,6 +313,14 @@ gui:
   deliver:
     title: "&#444444ᴏʀᴅᴇʀѕ -> Deliver Items"
     rows: 4
+    items:
+      confirm:
+        slot: 35
+        material: LIME_STAINED_GLASS_PANE
+        displayname: "&#39FF14CONFIRM"
+        lore:
+          - "&fClick to proceed with delivery"
+          - "&7(Only selected items will be counted)"
 
 
   confirm:

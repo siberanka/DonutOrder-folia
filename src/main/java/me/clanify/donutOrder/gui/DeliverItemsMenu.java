@@ -21,6 +21,7 @@ package me.clanify.donutOrder.gui;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import me.clanify.donutOrder.DonutOrder;
 import me.clanify.donutOrder.data.ItemKey;
 import me.clanify.donutOrder.data.Order;
@@ -50,6 +51,7 @@ public class DeliverItemsMenu
     private final Player p;
     private final Order order;
     private Inventory inv;
+    private boolean finalized = false;
 
     public DeliverItemsMenu(DonutOrder pl, Player p, Order order) {
         this.pl = pl;
@@ -67,8 +69,22 @@ public class DeliverItemsMenu
             return;
         }
         int rows = this.pl.cfg().rows("deliver", 4);
-        this.inv = Bukkit.createInventory((InventoryHolder) this, (int) (rows * 9),
+        int size = rows * 9;
+        this.inv = Bukkit.createInventory((InventoryHolder) this, (int) size,
                 (String) this.pl.cfg().title("deliver", "&#44b3ffOrders -> Deliver Items"));
+
+        // Setup confirmation button at the last slot or customized slot
+        ItemStack confirmBtn = this.pl.cfg().button("gui.deliver.items.confirm", "LIME_STAINED_GLASS_PANE",
+                "&aCONFIRM", List.of("&fClick to deliver items"));
+
+        // Find best slot (last slot usually)
+        int confirmSlot = size - 1; // Default to last slot
+        // If config has slot override (custom handling inside button reading might not
+        // support dynamic slot well without extra code,
+        // but let's try to stick to a convention or read raw config if needed,
+        // but here we just put it at the end to avoid conflict with storage area)
+        this.inv.setItem(confirmSlot, confirmBtn);
+
         this.p.openInventory(this.inv);
         this.pl.cfg().play(this.p, "sounds.open", "BLOCK_CHEST_OPEN", 0.7f, 1.0f);
     }
@@ -78,23 +94,54 @@ public class DeliverItemsMenu
         if (e.getInventory().getHolder() != this) {
             return;
         }
+
+        int slot = e.getSlot();
+        if (e.getClickedInventory() == this.inv) {
+            // Example: Confirm button logic
+            int rows = this.pl.cfg().rows("deliver", 4);
+            int size = rows * 9;
+            int confirmSlot = size - 1;
+
+            if (slot == confirmSlot) {
+                e.setCancelled(true);
+                this.processConfirmation();
+                return;
+            }
+        }
+
         e.setCancelled(false);
     }
 
-    @Override
-    public void onClose(InventoryCloseEvent e) {
-        if (e.getInventory().getHolder() != this) {
+    private void processConfirmation() {
+        if (this.finalized)
             return;
-        }
+        this.pl.cfg().play(this.p, "sounds.click", "UI_BUTTON_CLICK", 1.0f, 1.0f);
+
         ItemKey key = this.order.key;
         int need = this.order.remainingAmount();
         ArrayList<ItemStack> accepted = new ArrayList<ItemStack>();
         ArrayList<ItemStack> returns = new ArrayList<ItemStack>();
         int acceptedAmount = 0;
+
+        int rows = this.pl.cfg().rows("deliver", 4);
+        int size = rows * 9;
+        int confirmSlot = size - 1;
+
         for (int i = 0; i < this.inv.getSize(); ++i) {
+            if (i == confirmSlot)
+                continue; // Skip button
+
             ItemStack it = this.inv.getItem(i);
             if (it == null || it.getType() == Material.AIR)
                 continue;
+
+            // CRITICAL FIX: Clear the item from the inventory IMMEDIATELY.
+            // This prevents "race conditions" where a player/client tries to
+            // drop or move the item in the same tick as confirmation processing.
+            // By clearing it here, the item is strictly under our control in the 'it'
+            // variable.
+            this.inv.setItem(i, null);
+
             if (key.matches(it)) {
                 int can = Math.min(need - acceptedAmount, it.getAmount());
                 if (can > 0) {
@@ -102,11 +149,11 @@ public class DeliverItemsMenu
                     clone.setAmount(can);
                     accepted.add(clone);
                     acceptedAmount += can;
-                    if (it.getAmount() <= can)
-                        continue;
-                    ItemStack left = it.clone();
-                    left.setAmount(it.getAmount() - can);
-                    returns.add(left);
+                    if (it.getAmount() > can) { // Fixed condition: if we took PART of the stack, return the rest
+                        ItemStack left = it.clone();
+                        left.setAmount(it.getAmount() - can);
+                        returns.add(left);
+                    }
                     continue;
                 }
                 returns.add(it);
@@ -116,45 +163,102 @@ public class DeliverItemsMenu
                 ItemStack[] cont;
                 BlockStateMeta meta = (BlockStateMeta) it.getItemMeta();
                 ShulkerBox box = (ShulkerBox) meta.getBlockState();
-                for (ItemStack s : cont = box.getInventory().getContents()) {
+                boolean changed = false;
+                cont = box.getInventory().getContents();
+
+                for (int sIdx = 0; sIdx < cont.length; sIdx++) {
+                    ItemStack s = cont[sIdx];
                     if (s == null || s.getType() == Material.AIR || !key.matches(s))
                         continue;
+
                     int can = Math.min(need - acceptedAmount, s.getAmount());
                     if (can <= 0)
                         break;
+
                     ItemStack clone = s.clone();
                     clone.setAmount(can);
                     accepted.add(clone);
+
                     s.setAmount(s.getAmount() - can);
-                    if ((acceptedAmount += can) >= need)
+                    changed = true; // Mark that we modified the shulker contents
+
+                    acceptedAmount += can;
+                    if (acceptedAmount >= need)
                         break;
                 }
-                box.getInventory().setContents(cont);
-                meta.setBlockState((BlockState) box);
-                it.setItemMeta((ItemMeta) meta);
+
+                if (changed) {
+                    box.getInventory().setContents(cont);
+                    meta.setBlockState((BlockState) box);
+                    it.setItemMeta((ItemMeta) meta);
+                }
                 returns.add(it);
                 continue;
             }
             returns.add(it);
         }
+
+        // Return non-accepted items to player (or drop)
         for (ItemStack r : returns) {
             this.giveBackOrDrop(this.p, r);
         }
+
+        this.finalized = true;
+
         if (acceptedAmount <= 0) {
+            this.p.sendMessage(me.clanify.donutOrder.Utils.formatColors("&cNo valid items provided."));
             TaskUtil.runEntityLater((Plugin) this.pl, (Entity) this.p, () -> new OrdersMainMenu(this.pl, this.p).open(),
                     1L);
             return;
         }
+
         int acceptedAmountFinal = acceptedAmount;
-        ArrayList acceptedFinal = new ArrayList(accepted);
+        ArrayList<ItemStack> acceptedFinal = new ArrayList<>(accepted);
         TaskUtil.runEntityLater((Plugin) this.pl, (Entity) this.p,
                 () -> new ConfirmDeliveryMenu(this.pl, this.p, this.order, acceptedFinal, acceptedAmountFinal).open(),
                 1L);
     }
 
+    @Override
+    public void onClose(InventoryCloseEvent e) {
+        if (e.getInventory().getHolder() != this) {
+            return;
+        }
+        // SAFETY: If not finalized (confirmed), force return EVERYTHING in the GUI.
+        if (!this.finalized) {
+            // We do not filter for valid items here. JUST RETURN EVERYTHING.
+            // This prevents accidental loss if player crashes or closes GUI.
+            int rows = this.pl.cfg().rows("deliver", 4);
+            int size = rows * 9;
+            int confirmSlot = size - 1;
+
+            for (int i = 0; i < this.inv.getSize(); ++i) {
+                if (i == confirmSlot)
+                    continue; // Skip button
+                ItemStack it = this.inv.getItem(i);
+                if (it != null && it.getType() != Material.AIR) {
+                    this.giveBackOrDrop(this.p, it);
+                }
+            }
+
+            TaskUtil.runEntityLater((Plugin) this.pl, (Entity) this.p, () -> new OrdersMainMenu(this.pl, this.p).open(),
+                    1L);
+        }
+    }
+
     private static boolean isShulker(ItemStack it) {
         Material m = it.getType();
         return m.name().endsWith("SHULKER_BOX") && it.getItemMeta() instanceof BlockStateMeta;
+    }
+
+    @Override
+    public void onDrag(org.bukkit.event.inventory.InventoryDragEvent e) {
+        if (e.getInventory().getHolder() != this) {
+            return;
+        }
+        // Disable dragging items into the delivery menu entirely for safety.
+        // Players must click to place items.
+        e.setCancelled(true);
     }
 
     private void giveBackOrDrop(Player p, ItemStack is) {

@@ -1,10 +1,10 @@
 # DonutOrder
 
-> **Created by h2ph**
+> **Created by siberanka**
 
 A professional Minecraft plugin that enables players to create and manage item orders with a beautifully designed GUI system. Perfect for survival servers looking to streamline item trading and marketplace functionality.
 
-![Version](https://img.shields.io/badge/version-1.1.3-green.svg)
+![Version](https://img.shields.io/badge/version-2.0.0-green.svg)
 ![Minecraft](https://img.shields.io/badge/minecraft-1.21-blue.svg)
 ![Java](https://img.shields.io/badge/java-21-orange.svg)
 ![Folia](https://img.shields.io/badge/folia-supported-brightgreen.svg)
@@ -27,7 +27,7 @@ A professional Minecraft plugin that enables players to create and manage item o
 
 ## 🚀 Installation
 
-1. **Download** the latest `DonutOrder-1.1.3.jar` from the releases
+1. **Download** the latest `DonutOrder-2.0.0.jar` from the releases
 2. **Install Dependencies**: Ensure you have [Vault](https://www.spigotmc.org/resources/vault.34315/) installed
 3. **Place** the JAR file in your server's `plugins` folder
 4. **Restart** your server
@@ -140,7 +140,7 @@ DonutOrder/
 
 ## 📝 License
 
-This plugin is created by **h2ph**. All rights reserved.
+This plugin is created by **siberanka**. All rights reserved.
 
 ---
 
@@ -154,7 +154,7 @@ For issues, features requests, or questions:
 
 ## 🌟 Credits
 
-**Created by h2ph**
+**Created by siberanka**
 
 Special thanks to:
 - The Paper development team
@@ -164,6 +164,17 @@ Special thanks to:
 ---
 
 ## 📊 Changelog
+
+### Version 2.0.0
+- **Folia Support**: Full compatibility with Folia 1.21.11+
+- **Security Hardening**:
+  - Patched "Ghost Item" and duplication exploits.
+  - Added Drag Protection to all menus.
+  - Implemented Sign Input timeouts.
+  - Added strict Economy limits (Max Order Size/Price).
+- **Refactoring**:
+  - Global scheduler implementation.
+  - Enhanced config system.
 
 ### Version 1.1.3
 - Current stable release
@@ -175,5 +186,5 @@ Special thanks to:
 ---
 
 <div align="center">
-  <strong>Made with ❤️ by h2ph</strong>
+  <strong>Made with ❤️ by siberanka</strong>
 </div>

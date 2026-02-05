@@ -109,6 +109,8 @@ public class ConfirmDeliveryMenu
         e.setCancelled(true);
         int slot = e.getSlot();
         if (slot == 11) {
+            if (this.finalized)
+                return;
             this.pl.cfg().play(this.p, "sounds.click", "UI_BUTTON_CLICK", 1.0f, 1.0f);
             this.finalized = true;
             for (ItemStack is : this.accepted) {
@@ -119,6 +121,8 @@ public class ConfirmDeliveryMenu
             return;
         }
         if (slot == 15) {
+            if (this.finalized)
+                return;
             this.pl.cfg().play(this.p, "sounds.confirm", "ENTITY_EXPERIENCE_ORB_PICKUP", 1.0f, 1.2f);
             this.finalized = true;
             this.pl.orders().applyDelivery(this.order, this.accepted, this.acceptedAmount, this.p.getUniqueId());
@@ -149,5 +153,18 @@ public class ConfirmDeliveryMenu
     private void giveBackOrDrop(ItemStack is) {
         HashMap<Integer, ItemStack> leftovers = this.p.getInventory().addItem(new ItemStack[] { is });
         leftovers.values().forEach(rem -> this.p.getWorld().dropItemNaturally(this.p.getLocation(), rem));
+    }
+
+    @Override
+    public void onDrag(org.bukkit.event.inventory.InventoryDragEvent e) {
+        if (e.getView().getTopInventory().getHolder() != this) {
+            return;
+        }
+        for (int slot : e.getRawSlots()) {
+            if (slot < e.getView().getTopInventory().getSize()) {
+                e.setCancelled(true);
+                return;
+            }
+        }
     }
 }

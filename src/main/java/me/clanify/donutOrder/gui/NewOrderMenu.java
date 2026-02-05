@@ -195,6 +195,12 @@ public class NewOrderMenu
                     new NewOrderMenu(this.pl, this.p).open();
                     return;
                 }
+                if (amt > 1000000) { // HARD CAP 1,000,000
+                    this.p.sendMessage(
+                            Utils.formatColors("&cAmount limit is 1,000,000 items per order to prevent lag."));
+                    new NewOrderMenu(this.pl, this.p).open();
+                    return;
+                }
                 ChatInputManager.NewOrderSession sess = this.pl.chat().session(this.p.getUniqueId());
                 sess.amount = amt;
                 new NewOrderMenu(this.pl, this.p).open();
@@ -225,8 +231,13 @@ public class NewOrderMenu
                     new NewOrderMenu(this.pl, this.p).open();
                     return;
                 }
-                if (price <= 0.0) {
-                    this.p.sendMessage(Utils.formatColors("&cPrice must be greater than 0."));
+                if (price <= 0.0 || Double.isNaN(price) || Double.isInfinite(price)) {
+                    this.p.sendMessage(Utils.formatColors("&cPrice must be positive and valid."));
+                    new NewOrderMenu(this.pl, this.p).open();
+                    return;
+                }
+                if (price > 1_000_000_000_000.0) { // HARD CAP 1 Trillion
+                    this.p.sendMessage(Utils.formatColors("&cPrice exceeds the maximum limit of 1 Trillion."));
                     new NewOrderMenu(this.pl, this.p).open();
                     return;
                 }
@@ -284,5 +295,18 @@ public class NewOrderMenu
         }
         TaskUtil.runEntityLater((Plugin) this.pl, (Entity) this.p, () -> new YourOrdersMenu(this.pl, this.p).open(),
                 1L);
+    }
+
+    @Override
+    public void onDrag(org.bukkit.event.inventory.InventoryDragEvent e) {
+        if (e.getView().getTopInventory().getHolder() != this) {
+            return;
+        }
+        for (int slot : e.getRawSlots()) {
+            if (slot < e.getView().getTopInventory().getSize()) {
+                e.setCancelled(true);
+                return;
+            }
+        }
     }
 }

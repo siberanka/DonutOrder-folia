@@ -75,6 +75,20 @@ public class OrderManager {
     }
 
     public Order create(UUID owner, ItemKey key, int amount, double priceEach) {
+        if (amount <= 0)
+            throw new IllegalArgumentException("Amount must be positive");
+        if (priceEach <= 0)
+            throw new IllegalArgumentException("Price must be positive");
+        if (Double.isNaN(priceEach) || Double.isInfinite(priceEach))
+            throw new IllegalArgumentException("Invalid price");
+
+        // DoS Protection: Limit total orders per player
+        long count = this.orders.values().stream().filter(o -> o.owner.equals(owner) && !o.completed).count();
+        int limit = 50; // Hard limit for safety
+        if (count >= limit) {
+            throw new IllegalStateException("You have too many active orders! (Max: " + limit + ")");
+        }
+
         Order o = new Order();
         o.id = UUID.randomUUID();
         o.owner = owner;
