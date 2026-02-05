@@ -47,7 +47,9 @@ public class ConfirmDeliveryMenu
     private final List<ItemStack> accepted;
     private final int acceptedAmount;
     private Inventory inv;
-    private boolean finalized = false;
+    private volatile boolean finalized = false;
+    private long lastClickTime = 0;
+    private static final long CLICK_COOLDOWN_MS = 300;
 
     public ConfirmDeliveryMenu(DonutOrder pl, Player p, Order order, List<ItemStack> accepted, int acceptedAmount) {
         this.pl = pl;
@@ -107,6 +109,12 @@ public class ConfirmDeliveryMenu
             return;
         }
         e.setCancelled(true);
+        // Anti-exploit: Click cooldown
+        long now = System.currentTimeMillis();
+        if (now - lastClickTime < CLICK_COOLDOWN_MS) {
+            return;
+        }
+        lastClickTime = now;
         int slot = e.getSlot();
         if (slot == 11) {
             if (this.finalized)
@@ -123,6 +131,19 @@ public class ConfirmDeliveryMenu
         if (slot == 15) {
             if (this.finalized)
                 return;
+
+            // Anti-exploit: Check if order is still valid before delivery
+            if (this.order.completed || this.order.canceled) {
+                this.p.sendMessage(me.clanify.donutOrder.Utils.formatColors("&cThis order is no longer available."));
+                this.finalized = true;
+                for (ItemStack is : this.accepted) {
+                    this.giveBackOrDrop(is);
+                }
+                TaskUtil.runEntityLater((Plugin) this.pl, (Entity) this.p,
+                        () -> new OrdersMainMenu(this.pl, this.p).open(), 1L);
+                return;
+            }
+
             this.pl.cfg().play(this.p, "sounds.confirm", "ENTITY_EXPERIENCE_ORB_PICKUP", 1.0f, 1.2f);
             this.finalized = true;
             this.pl.orders().applyDelivery(this.order, this.accepted, this.acceptedAmount, this.p.getUniqueId());

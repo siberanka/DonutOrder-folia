@@ -15,10 +15,12 @@ import me.clanify.donutOrder.Utils;
 import me.clanify.donutOrder.cmd.DonutOrderCommand;
 import me.clanify.donutOrder.cmd.OrdersCommand;
 import me.clanify.donutOrder.gui.MenuListener;
+import me.clanify.donutOrder.gui.MenuOwner;
 import me.clanify.donutOrder.input.ChatInputManager;
 import me.clanify.donutOrder.store.ConfigManager;
 import me.clanify.donutOrder.store.EnchantmentsManager;
 import me.clanify.donutOrder.store.FilterManager;
+import me.clanify.donutOrder.store.LangManager;
 import me.clanify.donutOrder.store.OrderManager;
 import me.clanify.donutOrder.store.PlayerStateManager;
 import me.clanify.donutOrder.store.VaultHook;
@@ -34,6 +36,7 @@ public final class DonutOrder
     private static DonutOrder inst;
     private VaultHook vault;
     private ConfigManager configManager;
+    private LangManager langManager;
     private FilterManager filterManager;
     private EnchantmentsManager enchantmentsManager;
     private OrderManager orderManager;
@@ -47,6 +50,7 @@ public final class DonutOrder
     public void onEnable() {
         inst = this;
         this.configManager = new ConfigManager(this);
+        this.langManager = new LangManager(this);
         this.filterManager = new FilterManager(this);
         this.enchantmentsManager = new EnchantmentsManager(this);
         this.vault = new VaultHook(this);
@@ -69,6 +73,14 @@ public final class DonutOrder
     }
 
     public void onDisable() {
+        // Close all plugin GUIs to prevent item theft/loss on reload
+        for (org.bukkit.entity.Player p : Bukkit.getOnlinePlayers()) {
+            if (p.getOpenInventory() != null
+                    && p.getOpenInventory().getTopInventory().getHolder() instanceof MenuOwner) {
+                p.closeInventory();
+            }
+        }
+
         if (this.orderManager != null) {
             this.orderManager.saveAll();
             this.orderManager.shutdown();
@@ -88,6 +100,10 @@ public final class DonutOrder
 
     public FilterManager filters() {
         return this.filterManager;
+    }
+
+    public LangManager lang() {
+        return this.langManager;
     }
 
     public EnchantmentsManager ench() {

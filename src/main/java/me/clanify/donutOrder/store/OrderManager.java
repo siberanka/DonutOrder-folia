@@ -27,7 +27,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map;
 import java.util.UUID;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.PotionMeta;
+import org.bukkit.inventory.meta.EnchantmentStorageMeta;
+import org.bukkit.enchantments.Enchantment;
 import me.clanify.donutOrder.DonutOrder;
 import me.clanify.donutOrder.Utils;
 import me.clanify.donutOrder.data.ItemKey;
@@ -53,6 +58,12 @@ public class OrderManager {
     private final java.util.concurrent.ExecutorService ioExecutor = java.util.concurrent.Executors
             .newSingleThreadExecutor();
     private final File ordersDir;
+    // Anti-exploit: Per-order locks for race condition protection
+    private final java.util.concurrent.ConcurrentHashMap<UUID, Object> orderLocks = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private Object getLock(UUID orderId) {
+        return orderLocks.computeIfAbsent(orderId, k -> new Object());
+    }
 
     public OrderManager(DonutOrder pl) {
         this.pl = pl;
@@ -123,9 +134,8 @@ public class OrderManager {
         int remaining = o.remainingAmount();
         double refund = (double) remaining * o.priceEach;
         OfflinePlayer owner = Bukkit.getOfflinePlayer((UUID) o.owner);
-        if (owner.isOnline()) {
-            this.pl.vault().give((OfflinePlayer) owner.getPlayer(), refund);
-        }
+        // FIX: Vault supports offline players - always give refund
+        this.pl.vault().give(owner, refund);
         o.requested = o.delivered;
         o.completed = true;
         this.saveOrder(o);
@@ -154,22 +164,67 @@ public class OrderManager {
         if (acceptedAmount <= 0) {
             return;
         }
-        for (ItemStack it : accepted) {
-            if (it == null || it.getType() == Material.AIR || it.getAmount() <= 0)
-                continue;
-            o.storage.add(it);
+        // Anti-exploit: Synchronize on per-order lock to prevent race conditions
+        synchronized (getLock(o.id)) {
+            // Check if order is still valid
+            if (o.completed || o.canceled) {
+                pl.getLogger().warning("Attempted delivery to completed/canceled order: " + o.id);
+                return; // Items will be returned by caller
+            }
+
+            for (ItemStack it : accepted) {
+                if (it == null || it.getType() == Material.AIR || it.getAmount() <= 0)
+                    continue;
+
+                if (o.key.isVariant()) {
+                    // CONSTRUCTIVE SANITIZATION (Paranoid Mode):
+                    // Do not trust the incoming item 'it'. Rebuild it from scratch.
+                    ItemStack safe = new ItemStack(it.getType(), it.getAmount());
+                    ItemMeta safeMeta = safe.getItemMeta();
+                    ItemMeta origMeta = it.getItemMeta();
+
+                    if (safeMeta instanceof PotionMeta && origMeta instanceof PotionMeta) {
+                        PotionMeta pm = (PotionMeta) safeMeta;
+                        PotionMeta originalPm = (PotionMeta) origMeta;
+                        // Only copy base potion data (Type, Extended, Upgraded)
+                        // This strips custom effects and hidden NBT.
+                        pm.setBasePotionData(originalPm.getBasePotionData());
+                        safe.setItemMeta(pm);
+                    } else if (safeMeta instanceof EnchantmentStorageMeta
+                            && origMeta instanceof EnchantmentStorageMeta) {
+                        EnchantmentStorageMeta em = (EnchantmentStorageMeta) safeMeta;
+                        EnchantmentStorageMeta originalEm = (EnchantmentStorageMeta) origMeta;
+                        // Only copy stored enchantments. Strips lore, name, and other tags.
+                        originalEm.getStoredEnchants().forEach((ench, lvl) -> {
+                            em.addStoredEnchant(ench, lvl, true);
+                        });
+                        safe.setItemMeta(em);
+                    } else {
+                        // Fallback: If it's a variant but not handled above (e.g. unexpected),
+                        // treat it as standard to be safe (strip meta).
+                        // OrderManager.create only supports Potions and Books as variants primarily.
+                        o.storage.add(new ItemStack(it.getType(), it.getAmount()));
+                        continue;
+                    }
+                    o.storage.add(safe);
+                } else {
+                    // Non-variant: Strip everything (Vanilla)
+                    ItemStack clean = new ItemStack(it.getType(), it.getAmount());
+                    o.storage.add(clean);
+                }
+            }
+            double receive = (double) acceptedAmount * o.priceEach;
+            Player delivererPlayer = Bukkit.getPlayer((UUID) deliverer);
+            if (delivererPlayer != null) {
+                this.pl.vault().give((OfflinePlayer) delivererPlayer, receive);
+            }
+            o.delivered += acceptedAmount;
+            if (o.delivered >= o.requested) {
+                o.completed = true;
+            }
+            o.paid = Math.max(0.0, o.totalPrice() - (double) o.delivered * o.priceEach);
+            this.saveOrder(o);
         }
-        double receive = (double) acceptedAmount * o.priceEach;
-        Player delivererPlayer = Bukkit.getPlayer((UUID) deliverer);
-        if (delivererPlayer != null) {
-            this.pl.vault().give((OfflinePlayer) delivererPlayer, receive);
-        }
-        o.delivered += acceptedAmount;
-        if (o.delivered >= o.requested) {
-            o.completed = true;
-        }
-        o.paid = Math.max(0.0, o.totalPrice() - (double) o.delivered * o.priceEach);
-        this.saveOrder(o);
         this.sendReceiverActionbar(o, deliverer, acceptedAmount);
     }
 

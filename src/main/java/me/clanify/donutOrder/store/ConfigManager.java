@@ -88,6 +88,33 @@ public class ConfigManager {
         return this.disabledTokens.contains(m.name());
     }
 
+    public double getMinPricePerItem() {
+        double min = this.cfg.getDouble("minimum-price-per-item", 0.05);
+        // Ensure minimum is never negative or zero
+        if (min <= 0 || Double.isNaN(min) || Double.isInfinite(min)) {
+            return 0.05;
+        }
+        return min;
+    }
+
+    public double getMaxPricePerItem() {
+        double max = this.cfg.getDouble("maximum-price-per-item", 1_000_000_000_000.0);
+        // Ensure maximum is valid
+        if (max <= 0 || Double.isNaN(max) || Double.isInfinite(max)) {
+            return 1_000_000_000_000.0;
+        }
+        return max;
+    }
+
+    public int getMaxItemsPerOrder() {
+        int max = this.cfg.getInt("maximum-items-per-order", 1_000_000);
+        // Ensure maximum is at least 1
+        if (max < 1) {
+            return 1_000_000;
+        }
+        return max;
+    }
+
     public FileConfiguration cfg() {
         return this.cfg;
     }
@@ -104,7 +131,15 @@ public class ConfigManager {
         }
     }
 
+    private LangManager getLang() {
+        return this.plugin.lang();
+    }
+
     public String msg(String path, String def) {
+        LangManager lang = getLang();
+        if (lang != null) {
+            return Utils.formatColors(lang.get(path, def));
+        }
         return Utils.formatColors(this.cfg.getString(path, def));
     }
 
@@ -113,6 +148,10 @@ public class ConfigManager {
     }
 
     public String title(String path, String def) {
+        LangManager lang = getLang();
+        if (lang != null) {
+            return Utils.formatColors(lang.get("gui." + path + ".title", def));
+        }
         return Utils.formatColors(this.cfg.getString(path, def));
     }
 
@@ -121,7 +160,18 @@ public class ConfigManager {
     }
 
     public ItemStack button(String path, String defMat, String defName, List<?> defLoreLines) {
-        String name = Utils.formatColors(this.cfg.getString(path + ".displayname", defName));
+        LangManager lang = getLang();
+        String name;
+        List<String> lore;
+
+        if (lang != null) {
+            name = Utils.formatColors(lang.get(path + ".displayname", defName));
+            lore = lang.getList(path + ".lore");
+        } else {
+            name = Utils.formatColors(this.cfg.getString(path + ".displayname", defName));
+            lore = this.cfg.getStringList(path + ".lore");
+        }
+
         String matName = this.cfg.getString(path + ".material", defMat);
         Material m = Material.matchMaterial((String) matName);
         if (m == null) {
@@ -131,7 +181,6 @@ public class ConfigManager {
         ItemMeta meta = stack.getItemMeta();
         if (meta != null) {
             meta.setDisplayName(name);
-            List<String> lore = this.cfg.getStringList(path + ".lore");
             if (lore.isEmpty() && defLoreLines != null && !defLoreLines.isEmpty()) {
                 lore = new ArrayList<>();
                 for (Object o : defLoreLines)
@@ -166,7 +215,8 @@ public class ConfigManager {
     }
 
     public String sortName(SortType t) {
-        String k = "sort-names." + t.name();
+        LangManager lang = getLang();
+        String key = "sort." + t.name();
         String def = switch (t) {
             case MOST_PAID -> "Most Paid";
             case MOST_DELIVERED -> "Most Delivered";
@@ -174,7 +224,10 @@ public class ConfigManager {
             case MOST_MONEY_PER_ITEM -> "Most Money Per Item";
             default -> throw new IllegalStateException("Unexpected value: " + t);
         };
-        return Utils.formatColors(this.cfg.getString(k, def));
+        if (lang != null) {
+            return Utils.formatColors(lang.get(key, def));
+        }
+        return Utils.formatColors(this.cfg.getString("sort-names." + t.name(), def));
     }
 
     public String selectedPrefix(String gui) {
@@ -187,8 +240,19 @@ public class ConfigManager {
 
     public ItemStack dynamicItem(Material mat, String path, String defName, List<String> defLore,
             Map<String, String> placeholders) {
-        String name = Utils.formatColors(this.cfg.getString(path + ".displayname", defName));
-        if (placeholders != null) {
+        LangManager lang = getLang();
+        String name;
+        List<String> lore;
+
+        if (lang != null) {
+            name = Utils.formatColors(lang.get(path + ".displayname", defName));
+            lore = lang.getList(path + ".lore");
+        } else {
+            name = Utils.formatColors(this.cfg.getString(path + ".displayname", defName));
+            lore = this.cfg.getStringList(path + ".lore");
+        }
+
+        if (placeholders != null && name != null) {
             for (Map.Entry<String, String> entry : placeholders.entrySet()) {
                 name = name.replace("{" + entry.getKey() + "}", entry.getValue());
             }
@@ -196,8 +260,9 @@ public class ConfigManager {
         ItemStack stack = new ItemStack(mat);
         ItemMeta meta = stack.getItemMeta();
         if (meta != null) {
-            meta.setDisplayName(name);
-            List<String> lore = this.cfg.getStringList(path + ".lore");
+            if (name != null) {
+                meta.setDisplayName(name);
+            }
             if (lore.isEmpty() && defLore != null) {
                 lore = new ArrayList<String>(defLore);
             }

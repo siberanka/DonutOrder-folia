@@ -98,7 +98,6 @@ public class DeliverItemsMenu
 
         int slot = e.getSlot();
         if (e.getClickedInventory() == this.inv) {
-            // Example: Confirm button logic
             int rows = this.pl.cfg().rows("deliver", 4);
             int size = rows * 9;
             int confirmSlot = size - 1;
@@ -110,7 +109,31 @@ public class DeliverItemsMenu
             }
         }
 
-        e.setCancelled(false);
+        // STRICT INTERACTION: Only allow safe actions
+        // Prevent obscure click types that modded clients might use
+        // Allow: PICKUP, PLACE, SWAP, DROP, MOVE_TO_OTHER
+        switch (e.getAction()) {
+            case PICKUP_ALL:
+            case PICKUP_HALF:
+            case PICKUP_ONE:
+            case PICKUP_SOME:
+            case PLACE_ALL:
+            case PLACE_ONE:
+            case PLACE_SOME:
+            case SWAP_WITH_CURSOR:
+            case DROP_ALL_CURSOR:
+            case DROP_ONE_CURSOR:
+            case DROP_ALL_SLOT:
+            case DROP_ONE_SLOT:
+            case MOVE_TO_OTHER_INVENTORY:
+            case HOTBAR_MOVE_AND_READD:
+            case HOTBAR_SWAP:
+                e.setCancelled(false); // Allow standard interactions
+                break;
+            default:
+                e.setCancelled(true); // Block unwanted/unknown actions (CLONE, UNKNOWN, etc.)
+                break;
+        }
     }
 
     private void processConfirmation() {
@@ -118,109 +141,160 @@ public class DeliverItemsMenu
             return;
         this.pl.cfg().play(this.p, "sounds.click", "UI_BUTTON_CLICK", 1.0f, 1.0f);
 
-        ItemKey key = this.order.key;
-        int need = this.order.remainingAmount();
-        ArrayList<ItemStack> accepted = new ArrayList<ItemStack>();
-        ArrayList<ItemStack> returns = new ArrayList<ItemStack>();
-        int acceptedAmount = 0;
+        // --- PHASE 1: PRE-VALIDATION (SIMULATION) ---
+        // Calculate everything without modifying the GUI.
+        // Deep copy items to simulate removals.
 
         int rows = this.pl.cfg().rows("deliver", 4);
         int size = rows * 9;
         int confirmSlot = size - 1;
 
+        ItemKey key = this.order.key;
+        int remainingNeed = this.order.remainingAmount();
+        int potentialAcceptedAmount = 0;
+
+        // We use a map to store what the inventory SHOULD look like after processing.
+        // Index -> ItemStack (null means removed)
+        HashMap<Integer, ItemStack> transactionResult = new HashMap<>();
+        // List of items to be transported to next menu
+        ArrayList<ItemStack> transactionAccepted = new ArrayList<>();
+        // List of remaining items (leftovers/returns)
+        ArrayList<ItemStack> transactionReturns = new ArrayList<>();
+
         for (int i = 0; i < this.inv.getSize(); ++i) {
-            if (this.order.storage.size() + acceptedAmount >= OrderManager.MAX_STORAGE_SIZE) {
-                this.p.sendMessage(me.clanify.donutOrder.Utils
-                        .formatColors("&cOrder storage is full! Cannot deliver more items."));
-                break;
-            }
-
             if (i == confirmSlot)
-                continue; // Skip button
-
-            ItemStack it = this.inv.getItem(i);
-            if (it == null || it.getType() == Material.AIR)
                 continue;
 
-            // CRITICAL FIX: Clear the item from the inventory IMMEDIATELY.
-            // This prevents "race conditions" where a player/client tries to
-            // drop or move the item in the same tick as confirmation processing.
-            // By clearing it here, the item is strictly under our control in the 'it'
-            // variable.
-            this.inv.setItem(i, null);
+            ItemStack original = this.inv.getItem(i);
+            if (original == null || original.getType() == Material.AIR)
+                continue;
+
+            ItemStack it = original.clone(); // Work on clone
+
+            // Skip invalid/scam items (damage > 0 checked in matches)
 
             if (key.matches(it)) {
-                int can = Math.min(need - acceptedAmount, it.getAmount());
-                if (can > 0) {
-                    ItemStack clone = it.clone();
-                    clone.setAmount(can);
-                    accepted.add(clone);
-                    acceptedAmount += can;
-                    if (it.getAmount() > can) { // Fixed condition: if we took PART of the stack, return the rest
-                        ItemStack left = it.clone();
-                        left.setAmount(it.getAmount() - can);
-                        returns.add(left);
+                int canTake = Math.min(remainingNeed - potentialAcceptedAmount, it.getAmount());
+                if (canTake > 0) {
+                    ItemStack toAccept = it.clone();
+                    toAccept.setAmount(canTake);
+                    transactionAccepted.add(toAccept);
+
+                    potentialAcceptedAmount += canTake;
+
+                    if (it.getAmount() > canTake) {
+                        ItemStack leftover = it.clone();
+                        leftover.setAmount(it.getAmount() - canTake);
+                        transactionResult.put(i, leftover); // Update slot with leftover
+                    } else {
+                        transactionResult.put(i, null); // Slot becomes empty
                     }
                     continue;
                 }
-                returns.add(it);
+                // No more needed, keep item as is
+                transactionReturns.add(it);
+                transactionResult.put(i, it); // Explicitly keep
                 continue;
             }
+
             if (DeliverItemsMenu.isShulker(it)) {
-                ItemStack[] cont;
-                BlockStateMeta meta = (BlockStateMeta) it.getItemMeta();
-                ShulkerBox box = (ShulkerBox) meta.getBlockState();
-                boolean changed = false;
-                cont = box.getInventory().getContents();
+                // Shulker processing simulation
+                try {
+                    BlockStateMeta meta = (BlockStateMeta) it.getItemMeta();
+                    ShulkerBox box = (ShulkerBox) meta.getBlockState();
+                    ItemStack[] contents = box.getInventory().getContents();
+                    boolean changed = false;
 
-                for (int sIdx = 0; sIdx < cont.length; sIdx++) {
-                    ItemStack s = cont[sIdx];
-                    if (s == null || s.getType() == Material.AIR || !key.matches(s))
-                        continue;
+                    for (int sIdx = 0; sIdx < contents.length; sIdx++) {
+                        ItemStack s = contents[sIdx];
+                        if (s == null || s.getType() == Material.AIR || !key.matches(s))
+                            continue;
 
-                    int can = Math.min(need - acceptedAmount, s.getAmount());
-                    if (can <= 0)
-                        break;
+                        int canTake = Math.min(remainingNeed - potentialAcceptedAmount, s.getAmount());
+                        if (canTake <= 0)
+                            break;
 
-                    ItemStack clone = s.clone();
-                    clone.setAmount(can);
-                    accepted.add(clone);
+                        ItemStack toAccept = s.clone();
+                        toAccept.setAmount(canTake);
+                        transactionAccepted.add(toAccept);
 
-                    s.setAmount(s.getAmount() - can);
-                    changed = true; // Mark that we modified the shulker contents
+                        s.setAmount(s.getAmount() - canTake); // Modify simulation array
+                        changed = true;
+                        potentialAcceptedAmount += canTake;
+                    }
 
-                    acceptedAmount += can;
-                    if (acceptedAmount >= need)
-                        break;
+                    if (changed) {
+                        // Apply changes to fake shulker
+                        box.getInventory().setContents(contents);
+                        meta.setBlockState((BlockState) box);
+                        it.setItemMeta((ItemMeta) meta);
+                    }
+
+                    // Whether changed or not, the shulker stays/returns
+                    transactionResult.put(i, it);
+                    transactionReturns.add(it);
+
+                } catch (Exception e) {
+                    // Shulker parse error? Unsafe item? Skip it securely.
+                    transactionResult.put(i, original); // Keep original
+                    transactionReturns.add(original);
                 }
-
-                if (changed) {
-                    box.getInventory().setContents(cont);
-                    meta.setBlockState((BlockState) box);
-                    it.setItemMeta((ItemMeta) meta);
-                }
-                returns.add(it);
                 continue;
             }
-            returns.add(it);
+
+            // Irrelevant item
+            transactionResult.put(i, it);
+            transactionReturns.add(it);
         }
 
-        // Return non-accepted items to player (or drop)
-        for (ItemStack r : returns) {
-            this.giveBackOrDrop(this.p, r);
-        }
-
-        this.finalized = true;
-
-        if (acceptedAmount <= 0) {
-            this.p.sendMessage(me.clanify.donutOrder.Utils.formatColors("&cNo valid items provided."));
-            TaskUtil.runEntityLater((Plugin) this.pl, (Entity) this.p, () -> new OrdersMainMenu(this.pl, this.p).open(),
-                    1L);
+        // VALIDATION CHECK
+        if (potentialAcceptedAmount <= 0) {
+            this.p.sendMessage(me.clanify.donutOrder.Utils
+                    .formatColors(this.pl.cfg().msg("messages.no_valid_items", "&cNo valid items provided.")));
+            // GUI remains untouched, player can try again
             return;
         }
 
-        int acceptedAmountFinal = acceptedAmount;
-        ArrayList<ItemStack> acceptedFinal = new ArrayList<>(accepted);
+        if (this.order.storage.size() + potentialAcceptedAmount > OrderManager.MAX_STORAGE_SIZE) {
+            this.p.sendMessage(me.clanify.donutOrder.Utils
+                    .formatColors(this.pl.cfg().msg("messages.storage_full", "&cOrder storage is full!")));
+            return;
+        }
+
+        // --- PHASE 2: COMMIT (ATOMIC EXECUTION) ---
+        // Validation passed. Apply changes.
+
+        this.finalized = true; // Mark finalized immediately to prevent onClose refunding duplicates
+
+        // 1. Clear inventory to prevent dupes (we have the data in lists now)
+        for (int i = 0; i < this.inv.getSize(); ++i) {
+            if (i == confirmSlot)
+                continue;
+            this.inv.setItem(i, null);
+        }
+
+        // 2. Give back leftovers (modified shulkers, partial stacks)
+        // We use the 'transactionResult' map to know exact state of slots
+        // BUT logic simplifies to: simply return what's in 'transactionResult' values
+        // (if not null)
+        // Actually, logic is safer: We return everything that wasn't fully consumed.
+        // The 'transactionResult' map contains the FINAL state of slots.
+
+        for (HashMap.Entry<Integer, ItemStack> entry : transactionResult.entrySet()) {
+            ItemStack stack = entry.getValue();
+            if (stack != null && stack.getType() != Material.AIR) {
+                this.giveBackOrDrop(this.p, stack);
+            }
+        }
+        // Note: transactionReturns list was for calculation convenience,
+        // but transactionResult map is authoritative for slot updates.
+        // Wait, giveBackOrDrop drops at feet. Better to PUT BACK in slots if possible?
+        // No, standard behavior is to close menu and give back items.
+        // This is safer against "ghost items".
+
+        int acceptedAmountFinal = potentialAcceptedAmount;
+        ArrayList<ItemStack> acceptedFinal = new ArrayList<>(transactionAccepted);
+
         TaskUtil.runEntityLater((Plugin) this.pl, (Entity) this.p,
                 () -> new ConfirmDeliveryMenu(this.pl, this.p, this.order, acceptedFinal, acceptedAmountFinal).open(),
                 1L);

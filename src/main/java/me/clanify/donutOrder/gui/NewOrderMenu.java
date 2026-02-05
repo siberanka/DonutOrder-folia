@@ -60,6 +60,10 @@ public class NewOrderMenu
     private final DonutOrder pl;
     private final Player p;
     private Inventory inv;
+    // Anti-exploit: Prevent double-spend
+    private volatile boolean finalized = false;
+    private long lastClickTime = 0;
+    private static final long CLICK_COOLDOWN_MS = 300;
 
     public NewOrderMenu(DonutOrder pl, Player p) {
         this.pl = pl;
@@ -81,7 +85,6 @@ public class NewOrderMenu
     public void open() {
         boolean skipOnce;
         Material mat;
-        Object obj;
         ChatInputManager.NewOrderSession s = this.pl.chat().session(this.p.getUniqueId());
         if (s.chosenItem == null) {
             s.chosenItem = Material.STONE.name();
@@ -93,10 +96,12 @@ public class NewOrderMenu
             s.priceEach = 1.0;
         }
         ItemStack chosenStack = null;
-        if (this.p.hasMetadata(META_CHOSEN)
-                && (obj = ((MetadataValue) this.p.getMetadata(META_CHOSEN).get(0)).value()) instanceof ItemStack) {
-            ItemStack is = (ItemStack) obj;
-            chosenStack = is.clone();
+        List<org.bukkit.metadata.MetadataValue> metaList = this.p.getMetadata(META_CHOSEN);
+        if (!metaList.isEmpty()) {
+            Object obj = metaList.get(0).value();
+            if (obj instanceof ItemStack) {
+                chosenStack = ((ItemStack) obj).clone();
+            }
         }
         Material material = mat = chosenStack != null ? chosenStack.getType()
                 : Material.matchMaterial((String) s.chosenItem);
@@ -186,18 +191,21 @@ public class NewOrderMenu
                     t = t.replace(" ", "");
                     amt = Integer.parseInt(t);
                 } catch (Exception ex) {
-                    this.p.sendMessage(Utils.formatColors("&cInvalid amount. Please enter a whole number (e.g. 64)."));
+                    this.p.sendMessage(this.pl.cfg().msg("messages.amount_invalid",
+                            "&cInvalid amount. Please enter a whole number (e.g. 64)."));
                     new NewOrderMenu(this.pl, this.p).open();
                     return;
                 }
                 if (amt <= 0) {
-                    this.p.sendMessage(Utils.formatColors("&cAmount must be at least 1."));
+                    this.p.sendMessage(this.pl.cfg().msg("messages.amount_min", "&cAmount must be at least 1."));
                     new NewOrderMenu(this.pl, this.p).open();
                     return;
                 }
-                if (amt > 1000000) { // HARD CAP 1,000,000
+                int maxItems = this.pl.cfg().getMaxItemsPerOrder();
+                if (amt > maxItems) {
                     this.p.sendMessage(
-                            Utils.formatColors("&cAmount limit is 1,000,000 items per order to prevent lag."));
+                            this.pl.cfg().msg("messages.amount_max", "&cAmount limit is {max} items per order.")
+                                    .replace("{max}", Utils.abbr(maxItems)));
                     new NewOrderMenu(this.pl, this.p).open();
                     return;
                 }
@@ -227,17 +235,28 @@ public class NewOrderMenu
                     t = t.replace(" ", "").replace(",", ".");
                     price = Double.parseDouble(t);
                 } catch (Exception ex) {
-                    this.p.sendMessage(Utils.formatColors("&cInvalid price. Please enter a number (e.g. 2.5)."));
+                    this.p.sendMessage(this.pl.cfg().msg("messages.amount_invalid",
+                            "&cInvalid price. Please enter a number (e.g. 2.5)."));
                     new NewOrderMenu(this.pl, this.p).open();
                     return;
                 }
                 if (price <= 0.0 || Double.isNaN(price) || Double.isInfinite(price)) {
-                    this.p.sendMessage(Utils.formatColors("&cPrice must be positive and valid."));
+                    this.p.sendMessage(
+                            this.pl.cfg().msg("messages.price_invalid", "&cPrice must be positive and valid."));
                     new NewOrderMenu(this.pl, this.p).open();
                     return;
                 }
-                if (price > 1_000_000_000_000.0) { // HARD CAP 1 Trillion
-                    this.p.sendMessage(Utils.formatColors("&cPrice exceeds the maximum limit of 1 Trillion."));
+                double minPrice = this.pl.cfg().getMinPricePerItem();
+                if (price < minPrice) {
+                    this.p.sendMessage(this.pl.cfg().msg("messages.price_min", "&cMinimum price per item is ${min}.")
+                            .replace("{min}", Utils.abbr(minPrice)));
+                    new NewOrderMenu(this.pl, this.p).open();
+                    return;
+                }
+                double maxPrice = this.pl.cfg().getMaxPricePerItem();
+                if (price > maxPrice) {
+                    this.p.sendMessage(this.pl.cfg().msg("messages.price_max", "&cMaximum price per item is ${max}.")
+                            .replace("{max}", Utils.abbr(maxPrice)));
                     new NewOrderMenu(this.pl, this.p).open();
                     return;
                 }
@@ -248,28 +267,52 @@ public class NewOrderMenu
             return;
         }
         if (slot == 16) {
-            Object obj;
+            // Anti-exploit: Prevent double-click/double-spend
+            if (this.finalized)
+                return;
+            long now = System.currentTimeMillis();
+            if (now - lastClickTime < CLICK_COOLDOWN_MS)
+                return;
+            lastClickTime = now;
+
             this.pl.cfg().play(this.p, "sounds.click", "UI_BUTTON_CLICK", 1.0f, 1.0f);
             if (s.chosenItem == null || s.amount == null || s.priceEach == null) {
-                this.p.sendMessage("\u00a7cPlease set item, amount, and price first.");
+                this.p.sendMessage(
+                        this.pl.cfg().msg("messages.order_incomplete", "&cPlease set item, amount, and price first."));
                 return;
             }
             double total = (double) s.amount.intValue() * s.priceEach;
+            // Set finalized BEFORE vault.take() to prevent race condition
+            this.finalized = true;
             if (!this.pl.vault().take((OfflinePlayer) this.p, total)) {
-                this.p.sendMessage(Utils.formatColors(
-                        this.pl.cfg().msg("messages.cannot_afford", "&cYou cannot afford this (&f${total}&c).")
-                                .replace("${total}", Utils.abbr(total))));
+                this.finalized = false; // Reset on failure
+                this.p.sendMessage(
+                        this.pl.cfg().msg("messages.cannot_afford", "&cYou cannot afford this (${total}).")
+                                .replace("${total}", Utils.abbr(total)));
                 return;
             }
             ItemStack chosen = null;
-            if (this.p.hasMetadata(META_CHOSEN)
-                    && (obj = ((MetadataValue) this.p.getMetadata(META_CHOSEN).get(0)).value()) instanceof ItemStack) {
-                ItemStack is;
-                chosen = is = (ItemStack) obj;
+            List<org.bukkit.metadata.MetadataValue> metaList2 = this.p.getMetadata(META_CHOSEN);
+            if (!metaList2.isEmpty()) {
+                Object obj2 = metaList2.get(0).value();
+                if (obj2 instanceof ItemStack) {
+                    chosen = (ItemStack) obj2;
+                }
             }
             ItemKey key = chosen != null ? ItemKey.fromStack(chosen)
                     : ItemKey.of(Material.valueOf((String) s.chosenItem));
-            this.pl.orders().create(this.p.getUniqueId(), key, (int) s.amount, (double) s.priceEach);
+            try {
+                this.pl.orders().create(this.p.getUniqueId(), key, (int) s.amount, (double) s.priceEach);
+            } catch (Exception ex) {
+                // PARANOID SECURITY: Transaction Rollback
+                // If create() fails (limit reached, DB error), refund immediately.
+                this.pl.vault().give((OfflinePlayer) this.p, total);
+                this.finalized = false;
+                this.p.sendMessage(Utils.formatColors("&cOrder creation failed: " + ex.getMessage()));
+                this.p.sendMessage(Utils.formatColors("&e" + Utils.abbr(total) + " has been refunded."));
+                ex.printStackTrace();
+                return;
+            }
             this.p.playSound(this.p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.2f);
             if (this.p.hasMetadata(META_CHOSEN)) {
                 this.p.removeMetadata(META_CHOSEN, (Plugin) this.pl);

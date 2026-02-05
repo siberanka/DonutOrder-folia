@@ -115,7 +115,8 @@ public class OrdersMainMenu
         cats.addAll(this.pl.filters().categoryNames());
         ArrayList<String> filtLore = new ArrayList<>();
         for (String c : cats) {
-            filtLore.add((c.equalsIgnoreCase(st.filter) ? sel : uns) + c);
+            String translated = this.pl.lang().getFilterName(c);
+            filtLore.add((c.equalsIgnoreCase(st.filter) ? sel : uns) + translated);
         }
         this.inv.setItem(filt, this.pl.cfg().button("gui.orders.items.filter", "HOPPER", "&fFilter",
                 filtLore.stream().map(Utils::formatColors).toList()));
@@ -187,13 +188,7 @@ public class OrdersMainMenu
     }
 
     private String nameFor(SortType which) {
-        return switch (which) {
-            case MOST_PAID -> "Most Paid";
-            case MOST_DELIVERED -> "Most Delivered";
-            case RECENTLY_LISTED -> "Recently Listed";
-            case MOST_MONEY_PER_ITEM -> "Most Money Per Item";
-            default -> throw new IllegalStateException("Unexpected value: " + which);
-        };
+        return this.pl.lang().getSortName(which.name());
     }
 
     @Override

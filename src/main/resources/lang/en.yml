@@ -1,0 +1,281 @@
+# DonutOrder Plugin - English Language File
+# All translatable strings for the plugin
+
+# ======================================
+# Messages (command responses, notifications)
+# ======================================
+messages:
+  usage: "&cUsage: /orders"
+  no_permission: "&cYou don't have permission to do that."
+  reloaded: "&aDonutOrder configuration reloaded!"
+  unknown_command: "&cUnknown subcommand."
+  reload_usage: "&cUsage: /donutorder reload"
+  order_created: "&aOrder created successfully!"
+  order_cancelled: "&aOrder cancelled."
+  order_delivered: "&aYou delivered {amount}x {item} to {player}!"
+  order_received: "&a{player} delivered {amount}x {item} to your order!"
+  order_complete: "&aYour order for {item} has been completed!"
+  not_enough_items: "&cYou don't have enough items to deliver."
+  inventory_full: "&cYour inventory is full!"
+  no_orders: "&7There are no orders to display."
+  player_offline: "&cThat player is offline."
+  order_full: "&#9e9e9eOrder is &#16bf6dfull&#9e9e9e."
+  received_actionbar: "&#16bf6d{player} &#9e9e9ehas delivered you &#16bf6d{amount} {item}&#9e9e9e!"
+  # Price and amount validation
+  amount_min: "&cAmount must be at least 1."
+  amount_max: "&cAmount limit is {max} items per order."
+  amount_invalid: "&cInvalid amount. Please enter a whole number (e.g. 64)."
+  price_invalid: "&cPrice must be positive and valid."
+  price_min: "&cMinimum price per item is ${min}."
+  price_max: "&cMaximum price per item is ${max}."
+  # Order creation
+  cannot_afford: "&#9e9e9eYou cannot afford this &#16bf6d(&#9e9e9e$&#16bf6d${total}&#16bf6d&#9e9e9e)&#9e9e9e."
+  order_incomplete: "&cPlease set item, amount, and price first."
+  # Delivery messages
+  storage_full: "&cOrder storage is full! Cannot deliver more items."
+  no_valid_items: "&cNo valid items provided."
+  order_in_use: "&cThis order is currently being viewed by someone else."
+
+# ======================================
+# Sort Names (for sorting dropdown)
+# ======================================
+sort-names:
+  MOST_PAID: "Most Paid"
+  MOST_DELIVERED: "Most Delivered"
+  RECENTLY_LISTED: "Recently Listed"
+  MOST_MONEY_PER_ITEM: "Most Money Per Item"
+
+# ======================================
+# Filter Category Names
+# ======================================
+filters:
+  all: "All"
+  Blocks: "Blocks"
+  Tools: "Tools"
+  Food: "Food"
+  Combat: "Combat"
+  Potions: "Potions"
+  Books: "Books"
+  Ingredients: "Ingredients"
+  Utilities: "Utilities"
+
+# ======================================
+# GUI Configuration (Titles and Item Text)
+# ======================================
+gui:
+  orders:
+    title: "&#444444ᴏʀᴅᴇʀѕ"
+    format:
+      selected_prefix: "&#34ee80• "
+      unselected_prefix: "&f• "
+    items:
+      prev:
+        displayname: "&#34ee80ʙᴀᴄᴋ"
+        lore:
+          - "&fClick to go to the previous page"
+      sort:
+        displayname: "&#34ee80ѕᴏʀᴛ"
+        lore: []
+      filter:
+        displayname: "&#34ee80ꜰɪʟᴛᴇʀ"
+        lore: []
+      refresh:
+        displayname: "&#34ee80ʀᴇꜰʀᴇѕʜ"
+        lore:
+          - "&fClick to refresh"
+      search:
+        displayname: "&#34ee80ѕᴇᴀʀᴄʜ"
+        lore:
+          - "&fClick to search"
+      your:
+        displayname: "&#34ee80ʏᴏᴜʀ ᴏʀᴅᴇʀѕ"
+        lore:
+          - "&fClick to view your orders"
+      next:
+        displayname: "&#34ee80ɴᴇхᴛ"
+        lore:
+          - "&fClick to go to the next page"
+      order-item:
+        displayname: "&#34ee80{player}'s Order"
+        lore:
+          - "&f{item}"
+          - "&#34ee80${price_each} &feach"
+          - ""
+          - "&#7E7E29{delivered}/&#008D4C{requested} &#858585Delivered"
+          - "&#7E7E29${paid}/&#008D4C${total} &#858585paid"
+          - ""
+          - "&fClick to deliver &#34ee80{player} &f{item}"
+
+  your:
+    title: "&#444444ᴏʀᴅᴇʀѕ -> Your Orders"
+    items:
+      order-item:
+        displayname: "&#34ee80{player}'s Order"
+        lore:
+          - "&#34ee80{requested} &f{item}"
+          - "&#34ee80${price_each} &feach"
+          - ""
+          - "&#7E7E29{delivered}/&#008D4C{requested} &#858585Delivered"
+          - "&#7E7E29${paid}/&#008D4C${total} &#858585Paid"
+      new:
+        displayname: "&#34ee80New Order"
+        lore:
+          - "&fClick to create new order"
+
+  new:
+    title: "&#444444ᴏʀᴅᴇʀ -> New Order"
+    filler:
+      displayname: "&7 "
+    items:
+      cancel:
+        displayname: "&#FF3B3Bᴄᴀɴᴄᴇʟ"
+        lore:
+          - "&fClick to return"
+      item:
+        displayname: "&#34ee80ɪᴛᴇᴍ"
+        lore:
+          - "&fClick to choose item"
+          - "&7({item})"
+      amount:
+        displayname: "&#34ee80ᴀᴍᴏᴜɴᴛ"
+        lore:
+          - "&fClick to type number of items"
+          - "&7({amount})"
+      price:
+        displayname: "&#34ee80ᴘʀɪᴄᴇ"
+        lore:
+          - "&fClick to type the price per item"
+          - "&7(${price_each})"
+      confirm:
+        displayname: "&#39FF14ᴄᴏɴꜰɪʀᴍ"
+        lore:
+          - "&fClick to confirm order"
+          - "&7(Total: ${total})"
+
+  select:
+    title: "&#444444ᴏʀᴅᴇʀ -> Select Item"
+    format:
+      selected_prefix: "&#34ee80• "
+      unselected_prefix: "&f• "
+    items:
+      prev:
+        displayname: "&#34ee80ʙᴀᴄᴋ"
+        lore:
+          - "&fClick to go to the previous page"
+      next:
+        displayname: "&#34ee80ɴᴇхᴛ"
+        lore:
+          - "&fClick to go to the next page"
+      sort:
+        displayname: "&#34ee80ѕᴏʀᴛ"
+        lore: []
+      filter:
+        displayname: "&#34ee80ꜰɪʟᴛᴇʀ"
+        lore: []
+      search:
+        displayname: "&#34ee80ѕᴇᴀʀᴄʜ"
+        lore:
+          - "&fClick to search"
+      item:
+        displayname: "&f{item}"
+        lore:
+          - "&fClick to select"
+
+  edit:
+    title: "&#444444ᴏʀᴅᴇʀѕ -> Edit Order"
+    filler:
+      displayname: "&7 "
+    items:
+      target:
+        displayname: "&#34ee80{player}'s Order"
+        lore:
+          - "&f{item}"
+          - "&#34ee80${price_each} &feach"
+          - ""
+          - "&#7E7E29{delivered}/&#008D4C{requested} &#858585Delivered"
+          - "&#7E7E29${paid}/&#008D4C${total} &#858585paid"
+          - ""
+      cancel:
+        displayname: "&cᴄᴀɴᴄᴇʟ"
+        lore:
+          - "&fClick to cancel this order"
+      collect:
+        displayname: "&fᴄᴏʟʟᴇᴄᴛ"
+        lore:
+          - "&fClick to collect items"
+
+  delete:
+    title: "&#444444ᴏʀᴅᴇʀѕ -> Delete Order"
+    items:
+      back:
+        displayname: "&#FF3B3Bʙᴀᴄᴋ"
+        lore:
+          - "&fClick to go back"
+      confirm:
+        displayname: "&#39FF14ᴄᴏɴꜰɪʀᴍ"
+        lore:
+          - "&fClick to delete this order!"
+
+  collect:
+    title: "&#444444ᴏʀᴅᴇʀѕ -> Collect Items"
+    filler:
+      displayname: "&7 "
+    items:
+      prev:
+        displayname: "&#34ee80ʙᴀᴄᴋ"
+        lore:
+          - "&fClick to go to the previous page"
+      next:
+        displayname: "&#34ee80ɴᴇхᴛ"
+        lore:
+          - "&fClick to go to the next page"
+      drop:
+        displayname: "&#34ee80ᴅʀᴏᴘ ʟᴏᴏᴛ"
+        lore:
+          - "&fClick to drop all loot on the page"
+
+  deliver:
+    title: "&#444444ᴏʀᴅᴇʀѕ -> Deliver Items"
+    items:
+      confirm:
+        displayname: "&#39FF14CONFIRM"
+        lore:
+          - "&fClick to proceed with delivery"
+          - "&7(Only selected items will be counted)"
+
+  confirm:
+    title: "&#444444ᴏʀᴅᴇʀѕ -> Confirm Delivery"
+    items:
+      cancel:
+        displayname: "&#FF3B3Bᴄᴀɴᴄᴇʟ"
+        lore: "&fClick to go back"
+      summary:
+        displayname: "&f{player} Order"
+        lore:
+          - "&#34ee80{amount} &f{item}"
+          - "&#34ee80${price_each} &feach"
+          - ""
+          - "&7You're delivering &#34ee80{amount} &f{item}"
+      confirm:
+        displayname: "&#39FF14ᴄᴏɴꜰɪʀᴍ"
+        lore:
+          - "&fClick to deliver items"
+          - "&7({receive})"
+
+# ======================================
+# Item Names (for display in GUI)
+# ======================================
+items:
+  STONE: "Stone"
+  COBBLESTONE: "Cobblestone"
+  DIRT: "Dirt"
+  DIAMOND: "Diamond"
+  EMERALD: "Emerald"
+  IRON_INGOT: "Iron Ingot"
+  GOLD_INGOT: "Gold Ingot"
+  NETHERITE_INGOT: "Netherite Ingot"
+  COAL: "Coal"
+  LAPIS_LAZULI: "Lapis Lazuli"
+  REDSTONE: "Redstone"
+  OAK_LOG: "Oak Log"
+  OBSIDIAN: "Obsidian"

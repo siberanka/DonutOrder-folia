@@ -146,7 +146,8 @@ public class SelectItemMenu
             ItemCatalog.Entry ce = list.get(i);
             this.pageEntries.add(ce);
             Map<String, String> ph = Map.of("item", ce.display);
-            ItemStack ui = this.pl.cfg().dynamicItem(ce.base, "gui.select.items.item", "&f{item}",
+            // Use null for name to force vanilla sorting/display
+            ItemStack ui = this.pl.cfg().dynamicItem(ce.base, "gui.select.items.item", null,
                     List.of("&fClick to select"), ph);
             ItemKey key = ItemKey.fromStack(ce.stack);
             if (key != null && !(enchLore = key.enchantLoreLines("&7")).isEmpty() && (im = ui.getItemMeta()) != null) {
@@ -190,7 +191,8 @@ public class SelectItemMenu
         if (fm != null) {
             ArrayList<String> lines = new ArrayList<>();
             for (String name : cats) {
-                lines.add((name.equalsIgnoreCase(v.filter) ? selPrefix : unsPrefix) + name);
+                String translated = this.pl.lang().getFilterName(name);
+                lines.add((name.equalsIgnoreCase(v.filter) ? selPrefix : unsPrefix) + translated);
             }
             fm.setLore(lines.stream().map(Utils::formatColors).toList());
             filterBtn.setItemMeta(fm);

@@ -36,6 +36,9 @@ public class DeleteOrderMenu
     private final Player p;
     private final Order order;
     private Inventory inv;
+    private volatile boolean finalized = false;
+    private long lastClickTime = 0;
+    private static final long CLICK_COOLDOWN_MS = 300;
 
     public DeleteOrderMenu(DonutOrder pl, Player p, Order order) {
         this.pl = pl;
@@ -79,6 +82,15 @@ public class DeleteOrderMenu
             return;
         }
         if (slot == confirm) {
+            if (this.finalized)
+                return; // Anti-exploit: prevent double-click
+            // Anti-exploit: Click cooldown
+            long now = System.currentTimeMillis();
+            if (now - lastClickTime < CLICK_COOLDOWN_MS) {
+                return;
+            }
+            lastClickTime = now;
+            this.finalized = true;
             this.pl.cfg().play(this.p, "sounds.confirm", "ENTITY_EXPERIENCE_ORB_PICKUP", 1.0f, 1.2f);
             this.pl.orders().delete(this.order); // Actually delete the file to prevent disk exhaustion
             new YourOrdersMenu(this.pl, this.p).open();

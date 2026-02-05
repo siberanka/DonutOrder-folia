@@ -21,7 +21,7 @@ public class Order {
     public double priceEach;
     public double paid;
     public boolean canceled;
-    public boolean completed;
+    public volatile boolean completed;
     public final List<ItemStack> storage = new ArrayList<ItemStack>();
 
     public int remainingAmount() {
@@ -29,7 +29,6 @@ public class Order {
     }
 
     public double totalPrice() {
-        return (double)this.requested * this.priceEach;
+        return (double) this.requested * this.priceEach;
     }
 }
-

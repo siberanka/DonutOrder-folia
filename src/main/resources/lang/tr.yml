@@ -1,0 +1,281 @@
+# DonutOrder Plugin - Türkçe Dil Dosyası
+# Eklentinin tüm çevrilebilir metinleri
+
+# ======================================
+# Mesajlar (komut yanıtları, bildirimler)
+# ======================================
+messages:
+  usage: "&cKullanım: /orders"
+  no_permission: "&cBu işlem için yetkiniz yok."
+  reloaded: "&aDonutOrder yapılandırması yeniden yüklendi!"
+  unknown_command: "&cBilinmeyen alt komut."
+  reload_usage: "&cKullanım: /donutorder reload"
+  order_created: "&aSipariş başarıyla oluşturuldu!"
+  order_cancelled: "&aSipariş iptal edildi."
+  order_delivered: "&a{player} oyuncusuna {amount}x {item} teslim ettiniz!"
+  order_received: "&a{player} siparişinize {amount}x {item} teslim etti!"
+  order_complete: "&a{item} siparişiniz tamamlandı!"
+  not_enough_items: "&cTeslim etmek için yeterli eşyanız yok."
+  inventory_full: "&cEnvateriniz dolu!"
+  no_orders: "&7Görüntülenecek sipariş yok."
+  player_offline: "&cBu oyuncu çevrimdışı."
+  order_full: "&#9e9e9eSipariş &#16bf6ddolu&#9e9e9e."
+  received_actionbar: "&#16bf6d{player} &#9e9e9esiparişinize &#16bf6d{amount} {item}&#9e9e9e teslim etti!"
+  # Fiyat ve miktar doğrulama
+  amount_min: "&cMiktar en az 1 olmalıdır."
+  amount_max: "&cHer siparişte maksimum {max} eşya olabilir."
+  amount_invalid: "&cGeçersiz miktar. Tam sayı girin (örn. 64)."
+  price_invalid: "&cFiyat pozitif ve geçerli olmalıdır."
+  price_min: "&cEşya başına minimum fiyat ${min}."
+  price_max: "&cEşya başına maksimum fiyat ${max}."
+  # Sipariş oluşturma
+  cannot_afford: "&#9e9e9eBuna paranız yetmiyor &#16bf6d(&#9e9e9e$&#16bf6d${total}&#16bf6d&#9e9e9e)&#9e9e9e."
+  order_incomplete: "&cLütfen önce eşya, miktar ve fiyat belirleyin."
+  # Teslimat mesajları
+  storage_full: "&cSipariş deposu dolu! Daha fazla eşya teslim edilemez."
+  no_valid_items: "&cGeçerli eşya sağlanmadı."
+  order_in_use: "&cBu sipariş şu anda başka biri tarafından görüntüleniyor."
+
+# ======================================
+# Sıralama Adları
+# ======================================
+sort-names:
+  MOST_PAID: "En Çok Ödenen"
+  MOST_DELIVERED: "En Çok Teslim Edilen"
+  RECENTLY_LISTED: "Son Listelenen"
+  MOST_MONEY_PER_ITEM: "Eşya Başına En Çok Para"
+
+# ======================================
+# Filtre Kategori Adları
+# ======================================
+filters:
+  all: "Tümü"
+  Blocks: "Bloklar"
+  Tools: "Aletler"
+  Food: "Yiyecek"
+  Combat: "Savaş"
+  Potions: "İksirler"
+  Books: "Kitaplar"
+  Ingredients: "Malzemeler"
+  Utilities: "Genel"
+
+# ======================================
+# GUI Yapılandırması (Başlıklar ve Eşya Metinleri)
+# ======================================
+gui:
+  orders:
+    title: "&#444444sɪᴘᴀʀɪşʟᴇʀ"
+    format:
+      selected_prefix: "&#34ee80• "
+      unselected_prefix: "&f• "
+    items:
+      prev:
+        displayname: "&#34ee80ɢᴇʀɪ"
+        lore:
+          - "&fÖnceki sayfaya git"
+      sort:
+        displayname: "&#34ee80sɪʀᴀʟᴀ"
+        lore: []
+      filter:
+        displayname: "&#34ee80ꜰɪʟᴛʀᴇ"
+        lore: []
+      refresh:
+        displayname: "&#34ee80ʏᴇɴɪʟᴇ"
+        lore:
+          - "&fYenilemek için tıkla"
+      search:
+        displayname: "&#34ee80ᴀʀᴀ"
+        lore:
+          - "&fAramak için tıkla"
+      your:
+        displayname: "&#34ee80sɪᴘᴀʀɪşʟᴇʀɪᴍ"
+        lore:
+          - "&fSiparişlerini görmek için tıkla"
+      next:
+        displayname: "&#34ee80ɪʟᴇʀɪ"
+        lore:
+          - "&fSonraki sayfaya git"
+      order-item:
+        displayname: "&#34ee80{player} Siparişi"
+        lore:
+          - "&f{item}"
+          - "&#34ee80${price_each} &ftanesi"
+          - ""
+          - "&#7E7E29{delivered}/&#008D4C{requested} &#858585Teslim Edildi"
+          - "&#7E7E29${paid}/&#008D4C${total} &#858585ödendi"
+          - ""
+          - "&f&#34ee80{player} &fiçin teslim et {item}"
+
+  your:
+    title: "&#444444sɪᴘᴀʀɪşʟᴇʀ -> Siparişlerim"
+    items:
+      order-item:
+        displayname: "&#34ee80{player} Siparişi"
+        lore:
+          - "&#34ee80{requested} &f{item}"
+          - "&#34ee80${price_each} &ftanesi"
+          - ""
+          - "&#7E7E29{delivered}/&#008D4C{requested} &#858585Teslim Edildi"
+          - "&#7E7E29${paid}/&#008D4C${total} &#858585Ödendi"
+      new:
+        displayname: "&#34ee80Yeni Sipariş"
+        lore:
+          - "&fYeni sipariş oluştur"
+
+  new:
+    title: "&#444444sɪᴘᴀʀɪş -> Yeni Sipariş"
+    filler:
+      displayname: "&7 "
+    items:
+      cancel:
+        displayname: "&#FF3B3Bɪᴘᴛᴀʟ"
+        lore:
+          - "&fGeri dönmek için tıkla"
+      item:
+        displayname: "&#34ee80ᴇşʏᴀ"
+        lore:
+          - "&fEşya seçmek için tıkla"
+          - "&7({item})"
+      amount:
+        displayname: "&#34ee80ᴍɪᴋᴛᴀʀ"
+        lore:
+          - "&fEşya sayısını yazmak için tıkla"
+          - "&7({amount})"
+      price:
+        displayname: "&#34ee80ꜰɪʏᴀᴛ"
+        lore:
+          - "&fEşya başına fiyat yazmak için tıkla"
+          - "&7(${price_each})"
+      confirm:
+        displayname: "&#39FF14ᴏɴᴀʏʟᴀ"
+        lore:
+          - "&fSiparişi onaylamak için tıkla"
+          - "&7(Toplam: ${total})"
+
+  select:
+    title: "&#444444sɪᴘᴀʀɪş -> Eşya Seç"
+    format:
+      selected_prefix: "&#34ee80• "
+      unselected_prefix: "&f• "
+    items:
+      prev:
+        displayname: "&#34ee80ɢᴇʀɪ"
+        lore:
+          - "&fÖnceki sayfaya git"
+      next:
+        displayname: "&#34ee80ɪʟᴇʀɪ"
+        lore:
+          - "&fSonraki sayfaya git"
+      sort:
+        displayname: "&#34ee80sɪʀᴀʟᴀ"
+        lore: []
+      filter:
+        displayname: "&#34ee80ꜰɪʟᴛʀᴇ"
+        lore: []
+      search:
+        displayname: "&#34ee80ᴀʀᴀ"
+        lore:
+          - "&fAramak için tıkla"
+      item:
+        displayname: "&f{item}"
+        lore:
+          - "&fSeçmek için tıkla"
+
+  edit:
+    title: "&#444444sɪᴘᴀʀɪşʟᴇʀ -> Sipariş Düzenle"
+    filler:
+      displayname: "&7 "
+    items:
+      target:
+        displayname: "&#34ee80{player} Siparişi"
+        lore:
+          - "&f{item}"
+          - "&#34ee80${price_each} &ftanesi"
+          - ""
+          - "&#7E7E29{delivered}/&#008D4C{requested} &#858585Teslim Edildi"
+          - "&#7E7E29${paid}/&#008D4C${total} &#858585ödendi"
+          - ""
+      cancel:
+        displayname: "&cɪᴘᴛᴀʟ"
+        lore:
+          - "&fBu siparişi iptal et"
+      collect:
+        displayname: "&fᴛᴏᴘʟᴀ"
+        lore:
+          - "&fEşyaları topla"
+
+  delete:
+    title: "&#444444sɪᴘᴀʀɪşʟᴇʀ -> Sipariş Sil"
+    items:
+      back:
+        displayname: "&#FF3B3Bɢᴇʀɪ"
+        lore:
+          - "&fGeri dön"
+      confirm:
+        displayname: "&#39FF14ᴏɴᴀʏʟᴀ"
+        lore:
+          - "&fBu siparişi silmek için tıkla!"
+
+  collect:
+    title: "&#444444sɪᴘᴀʀɪşʟᴇʀ -> Eşya Topla"
+    filler:
+      displayname: "&7 "
+    items:
+      prev:
+        displayname: "&#34ee80ɢᴇʀɪ"
+        lore:
+          - "&fÖnceki sayfaya git"
+      next:
+        displayname: "&#34ee80ɪʟᴇʀɪ"
+        lore:
+          - "&fSonraki sayfaya git"
+      drop:
+        displayname: "&#34ee80ᴇşʏᴀ ᴀᴛ"
+        lore:
+          - "&fSayfadaki tüm eşyaları yere at"
+
+  deliver:
+    title: "&#444444sɪᴘᴀʀɪşʟᴇʀ -> Eşya Teslim Et"
+    items:
+      confirm:
+        displayname: "&#39FF14ONAYLA"
+        lore:
+          - "&fTeslimatı onaylamak için tıkla"
+          - "&7(Sadece seçili eşyalar sayılacak)"
+
+  confirm:
+    title: "&#444444sɪᴘᴀʀɪşʟᴇʀ -> Teslimatı Onayla"
+    items:
+      cancel:
+        displayname: "&#FF3B3Bɪᴘᴛᴀʟ"
+        lore: "&fGeri dönmek için tıkla"
+      summary:
+        displayname: "&f{player} Siparişi"
+        lore:
+          - "&#34ee80{amount} &f{item}"
+          - "&#34ee80${price_each} &ftanesi"
+          - ""
+          - "&7&#34ee80{amount} &f{item} teslim edeceksiniz"
+      confirm:
+        displayname: "&#39FF14ᴏɴᴀʏʟᴀ"
+        lore:
+          - "&fEşyaları teslim et"
+          - "&7({receive})"
+
+# ======================================
+# Eşya Adları (GUI'de görüntüleme için)
+# ======================================
+items:
+  STONE: "Taş"
+  COBBLESTONE: "Kırık Taş"
+  DIRT: "Toprak"
+  DIAMOND: "Elmas"
+  EMERALD: "Zümrüt"
+  IRON_INGOT: "Demir Külçesi"
+  GOLD_INGOT: "Altın Külçesi"
+  NETHERITE_INGOT: "Netherit Külçesi"
+  COAL: "Kömür"
+  LAPIS_LAZULI: "Lapis Lazuli"
+  REDSTONE: "Kızıltaş"
+  OAK_LOG: "Meşe Kütük"
+  OBSIDIAN: "Obsidyen"

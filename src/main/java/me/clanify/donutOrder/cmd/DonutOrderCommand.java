@@ -41,12 +41,13 @@ public class DonutOrderCommand
                 return true;
             }
             this.pl.cfg().reload();
+            this.pl.lang().reload();
             this.pl.filters().reload();
             if (this.pl.ench() != null) {
                 this.pl.ench().reload();
             }
             sender.sendMessage(
-                    Utils.formatColors(pl.cfg().cfg().getString("messages.reloaded", "&aDonutOrder reloaded.")));
+                    Utils.formatColors(pl.lang().get("messages.reloaded", "&aDonutOrder reloaded.")));
             return true;
         }
         sender.sendMessage(

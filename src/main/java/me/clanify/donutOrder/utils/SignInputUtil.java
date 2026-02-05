@@ -545,6 +545,10 @@ public final class SignInputUtil {
                 raw = "";
             }
             raw = raw.trim();
+            // PARANOID SECURITY: Limit input length to prevent memory spikes
+            if (raw.length() > 32) {
+                raw = raw.substring(0, 32);
+            }
             SignInputUtil.finish(p, raw);
         }
 
