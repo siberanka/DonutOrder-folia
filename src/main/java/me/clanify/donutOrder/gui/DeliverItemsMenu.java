@@ -25,6 +25,7 @@ import java.util.List;
 import me.clanify.donutOrder.DonutOrder;
 import me.clanify.donutOrder.data.ItemKey;
 import me.clanify.donutOrder.data.Order;
+import me.clanify.donutOrder.store.OrderManager;
 import me.clanify.donutOrder.gui.ConfirmDeliveryMenu;
 import me.clanify.donutOrder.gui.MenuOwner;
 import me.clanify.donutOrder.gui.OrdersMainMenu;
@@ -128,6 +129,12 @@ public class DeliverItemsMenu
         int confirmSlot = size - 1;
 
         for (int i = 0; i < this.inv.getSize(); ++i) {
+            if (this.order.storage.size() + acceptedAmount >= OrderManager.MAX_STORAGE_SIZE) {
+                this.p.sendMessage(me.clanify.donutOrder.Utils
+                        .formatColors("&cOrder storage is full! Cannot deliver more items."));
+                break;
+            }
+
             if (i == confirmSlot)
                 continue; // Skip button
 

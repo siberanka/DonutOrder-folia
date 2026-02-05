@@ -48,7 +48,10 @@ import org.bukkit.util.io.BukkitObjectOutputStream;
 
 public class OrderManager {
     private final DonutOrder pl;
+    public static final int MAX_STORAGE_SIZE = 3500; // DoS Protection Limit
     private final Map<UUID, Order> orders = new LinkedHashMap<UUID, Order>();
+    private final java.util.concurrent.ExecutorService ioExecutor = java.util.concurrent.Executors
+            .newSingleThreadExecutor();
     private final File ordersDir;
 
     public OrderManager(DonutOrder pl) {
@@ -64,6 +67,17 @@ public class OrderManager {
         }
 
         this.loadAll();
+    }
+
+    public void shutdown() {
+        this.ioExecutor.shutdown();
+        try {
+            if (!this.ioExecutor.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS)) {
+                this.ioExecutor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            this.ioExecutor.shutdownNow();
+        }
     }
 
     public Collection<Order> all() {
@@ -115,6 +129,25 @@ public class OrderManager {
         o.requested = o.delivered;
         o.completed = true;
         this.saveOrder(o);
+    }
+
+    public void delete(Order o) {
+        // Ensure refund happens if not already completed/canceled
+        if (!o.completed && !o.canceled) {
+            this.cancel(o); // Use cancel logic for refund
+        }
+
+        // Remove from memory
+        this.orders.remove(o.id);
+
+        // Remove from disk (Async I/O)
+        final UUID oid = o.id;
+        this.ioExecutor.submit(() -> {
+            File f = new File(ordersDir, oid.toString() + ".yml");
+            if (f.exists()) {
+                f.delete();
+            }
+        });
     }
 
     public void applyDelivery(Order o, List<ItemStack> accepted, int acceptedAmount, UUID deliverer) {
@@ -264,8 +297,9 @@ public class OrderManager {
         final boolean canceled = o.canceled;
         final boolean completed = o.completed;
 
-        // Run EVERYTHING async - including Base64 serialization
-        Bukkit.getScheduler().runTaskAsynchronously(pl, () -> {
+        // Run EVERYTHING async - strictly sequential via single-thread executor to
+        // prevent corruptions
+        this.ioExecutor.submit(() -> {
             // Serialize items to Base64 on async thread
             List<String> storageBase64 = new ArrayList<>();
             for (ItemStack item : storageClone) {

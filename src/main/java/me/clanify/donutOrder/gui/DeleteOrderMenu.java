@@ -80,7 +80,7 @@ public class DeleteOrderMenu
         }
         if (slot == confirm) {
             this.pl.cfg().play(this.p, "sounds.confirm", "ENTITY_EXPERIENCE_ORB_PICKUP", 1.0f, 1.2f);
-            this.pl.orders().cancel(this.order);
+            this.pl.orders().delete(this.order); // Actually delete the file to prevent disk exhaustion
             new YourOrdersMenu(this.pl, this.p).open();
         }
     }

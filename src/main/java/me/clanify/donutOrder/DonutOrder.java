@@ -71,6 +71,7 @@ public final class DonutOrder
     public void onDisable() {
         if (this.orderManager != null) {
             this.orderManager.saveAll();
+            this.orderManager.shutdown();
         }
         if (this.stateManager != null) {
             this.stateManager.saveAllPrefs();
