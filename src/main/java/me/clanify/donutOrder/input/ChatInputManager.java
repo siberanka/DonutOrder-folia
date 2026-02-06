@@ -28,11 +28,11 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.plugin.Plugin;
 
-public class ChatInputManager
-implements Listener {
+public class ChatInputManager implements Listener {
     private final DonutOrder plugin;
-    private final Map<UUID, Prompt> prompts = new HashMap<UUID, Prompt>();
-    private final Map<UUID, NewOrderSession> sessions = new HashMap<UUID, NewOrderSession>();
+    // Thread-safe maps for Concurrent access (Async Chat vs Main Thread)
+    private final Map<UUID, Prompt> prompts = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<UUID, NewOrderSession> sessions = new java.util.concurrent.ConcurrentHashMap<>();
 
     public ChatInputManager(DonutOrder plugin) {
         this.plugin = plugin;
@@ -52,58 +52,88 @@ implements Listener {
         this.sessions.remove(u);
     }
 
-    @EventHandler
+    @EventHandler(priority = org.bukkit.event.EventPriority.LOWEST)
     public void onChat(AsyncPlayerChatEvent e) {
         Player p = e.getPlayer();
         UUID u = p.getUniqueId();
-        Prompt pr = this.prompts.remove(u);
-        if (pr == null) {
+
+        // Check if player has a pending prompt
+        if (!this.prompts.containsKey(u)) {
             return;
         }
+
+        // Consume event immediately
         e.setCancelled(true);
-        String msg = e.getMessage().trim();
-        switch (pr.kind.ordinal()) {
-            case 0: {
-                this.plugin.state().main((UUID)u).search = msg;
+
+        final String msg = e.getMessage().trim();
+
+        // Removing the prompt can happen here safely due to ConcurrentHashMap
+        final Prompt pr = this.prompts.remove(u);
+        if (pr == null)
+            return; // Race condition check
+
+        // SCHEDULE LOGIC TO RUN ON MAIN SERVER THREAD
+        // This prevents Async Chat from corrupting plugin state or triggering async
+        // exceptions
+        TaskUtil.runEntity(this.plugin, p, () -> {
+            if (!p.isOnline())
+                return;
+            this.handleSyncInput(p, pr, msg);
+        });
+    }
+
+    @EventHandler
+    public void onQuit(org.bukkit.event.player.PlayerQuitEvent e) {
+        // CLEANUP MEMORY LEAKS
+        UUID u = e.getPlayer().getUniqueId();
+        this.prompts.remove(u);
+        this.sessions.remove(u);
+    }
+
+    private void handleSyncInput(Player p, Prompt pr, String msg) {
+        UUID u = p.getUniqueId();
+        switch (pr.kind) {
+            case SEARCH_MAIN: {
+                this.plugin.state().main(u).search = msg;
                 p.sendMessage(this.plugin.cfg().msg("chat.search_set", "&aSearch set: &f" + msg));
-                TaskUtil.runEntity((Plugin)this.plugin, (Entity)p, () -> new OrdersMainMenu(this.plugin, p).open());
+                new OrdersMainMenu(this.plugin, p).open();
                 break;
             }
-            case 1: {
-                this.plugin.state().items((UUID)u).search = msg;
+            case SEARCH_SELECT: {
+                this.plugin.state().items(u).search = msg;
                 p.sendMessage(this.plugin.cfg().msg("chat.search_set", "&aSearch set: &f" + msg));
-                TaskUtil.runEntity((Plugin)this.plugin, (Entity)p, () -> new SelectItemMenu(this.plugin, p).open());
+                new SelectItemMenu(this.plugin, p).open();
                 break;
             }
-            case 2: {
+            case AMOUNT: {
                 try {
                     int amt = Integer.parseInt(msg);
                     if (amt <= 0) {
                         throw new NumberFormatException();
                     }
-                    this.session((UUID)u).amount = amt;
+                    this.session(u).amount = amt;
                     p.sendMessage(this.plugin.cfg().msg("chat.amount_ok", "&aAmount set: &f" + amt));
-                    TaskUtil.runEntity((Plugin)this.plugin, (Entity)p, () -> new NewOrderMenu(this.plugin, p).open());
-                }
-                catch (NumberFormatException ex) {
-                    p.sendMessage(String.valueOf(ChatColor.RED) + "Invalid amount.");
+                    new NewOrderMenu(this.plugin, p).open();
+                } catch (NumberFormatException ex) {
+                    p.sendMessage(ChatColor.RED + "Invalid amount.");
+                    new NewOrderMenu(this.plugin, p).open(); // Re-open menu on failure
                 }
                 break;
             }
-            case 3: {
+            case PRICE: {
                 try {
                     double price = Double.parseDouble(msg);
-                    if (price <= 0.0) {
+                    if (price <= 0.0 || Double.isNaN(price) || Double.isInfinite(price)) {
                         throw new NumberFormatException();
                     }
-                    this.session((UUID)u).priceEach = price;
+                    this.session(u).priceEach = price;
                     p.sendMessage(this.plugin.cfg().msg("chat.price_ok", "&aPrice set: &f$" + price));
-                    TaskUtil.runEntity((Plugin)this.plugin, (Entity)p, () -> new NewOrderMenu(this.plugin, p).open());
-                    break;
+                    new NewOrderMenu(this.plugin, p).open();
+                } catch (NumberFormatException ex) {
+                    p.sendMessage(ChatColor.RED + "Invalid price.");
+                    new NewOrderMenu(this.plugin, p).open(); // Re-open menu on failure
                 }
-                catch (NumberFormatException ex) {
-                    p.sendMessage(String.valueOf(ChatColor.RED) + "Invalid price.");
-                }
+                break;
             }
         }
     }
@@ -116,12 +146,11 @@ implements Listener {
         }
     }
 
-    public static enum Kind {
+    public enum Kind {
         SEARCH_MAIN,
         SEARCH_SELECT,
         AMOUNT,
         PRICE;
-
     }
 
     public static class NewOrderSession {
@@ -130,4 +159,3 @@ implements Listener {
         public Double priceEach;
     }
 }
-

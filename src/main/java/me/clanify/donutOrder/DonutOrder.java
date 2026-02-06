@@ -81,6 +81,12 @@ public final class DonutOrder
             }
         }
 
+        // Cancel all tasks to prevent background processes from running on dead plugin
+        try {
+            this.getServer().getScheduler().cancelTasks((Plugin) this);
+        } catch (Exception ignored) {
+        }
+
         if (this.orderManager != null) {
             this.orderManager.saveAll();
             this.orderManager.shutdown();

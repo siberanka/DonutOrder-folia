@@ -95,9 +95,7 @@ public class OrderManager {
         return this.orders.values();
     }
 
-    public Order create(UUID owner, Material chosenMaterial, int amount, double priceEach) {
-        return this.create(owner, ItemKey.of(chosenMaterial), amount, priceEach);
-    }
+    private final Object globalLock = new Object();
 
     public Order create(UUID owner, ItemKey key, int amount, double priceEach) {
         if (amount <= 0)
@@ -107,48 +105,53 @@ public class OrderManager {
         if (Double.isNaN(priceEach) || Double.isInfinite(priceEach))
             throw new IllegalArgumentException("Invalid price");
 
-        // DoS Protection: Limit total orders per player
-        long count = this.orders.values().stream().filter(o -> o.owner.equals(owner) && !o.completed).count();
-        int limit = 50; // Hard limit for safety
-        if (count >= limit) {
-            throw new IllegalStateException("You have too many active orders! (Max: " + limit + ")");
-        }
+        synchronized (globalLock) {
+            // DoS Protection: Limit total orders per player
+            long count = this.orders.values().stream().filter(o -> o.owner.equals(owner) && !o.completed).count();
+            int limit = 50; // Hard limit for safety
+            if (count >= limit) {
+                throw new IllegalStateException("You have too many active orders! (Max: " + limit + ")");
+            }
 
-        Order o = new Order();
-        o.id = UUID.randomUUID();
-        o.owner = owner;
-        o.key = key;
-        o.requested = Math.max(1, amount);
-        o.delivered = 0;
-        o.priceEach = priceEach;
-        o.paid = o.totalPrice();
-        o.canceled = false;
-        o.completed = false;
-        this.orders.put(o.id, o);
-        this.saveOrder(o);
-        return o;
+            Order o = new Order();
+            o.id = UUID.randomUUID();
+            o.owner = owner;
+            o.key = key;
+            o.requested = Math.max(1, amount);
+            o.delivered = 0;
+            o.priceEach = priceEach;
+            o.paid = o.totalPrice();
+            o.canceled = false;
+            o.completed = false;
+            this.orders.put(o.id, o);
+            this.saveOrder(o);
+            return o;
+        }
     }
 
     public void cancel(Order o) {
-        o.canceled = true;
-        int remaining = o.remainingAmount();
-        double refund = (double) remaining * o.priceEach;
-        OfflinePlayer owner = Bukkit.getOfflinePlayer((UUID) o.owner);
-        // FIX: Vault supports offline players - always give refund
-        this.pl.vault().give(owner, refund);
-        o.requested = o.delivered;
-        o.completed = true;
-        this.saveOrder(o);
+        synchronized (getLock(o.id)) {
+            o.canceled = true;
+            int remaining = o.remainingAmount();
+            double refund = (double) remaining * o.priceEach;
+            OfflinePlayer owner = Bukkit.getOfflinePlayer((UUID) o.owner);
+            this.pl.vault().give(owner, refund);
+            o.requested = o.delivered;
+            o.completed = true;
+            this.saveOrder(o);
+        }
     }
 
     public void delete(Order o) {
-        // Ensure refund happens if not already completed/canceled
-        if (!o.completed && !o.canceled) {
-            this.cancel(o); // Use cancel logic for refund
-        }
+        synchronized (globalLock) {
+            // Ensure refund happens if not already completed/canceled
+            if (!o.completed && !o.canceled) {
+                this.cancel(o); // Use cancel logic for refund
+            }
 
-        // Remove from memory
-        this.orders.remove(o.id);
+            // Remove from memory
+            this.orders.remove(o.id);
+        }
 
         // Remove from disk (Async I/O)
         final UUID oid = o.id;
@@ -172,6 +175,8 @@ public class OrderManager {
                 return; // Items will be returned by caller
             }
 
+            // --- PHASE 1: VALIDATION & SANITIZATION ---
+            List<ItemStack> safeStorageToAdd = new ArrayList<>();
             for (ItemStack it : accepted) {
                 if (it == null || it.getType() == Material.AIR || it.getAmount() <= 0)
                     continue;
@@ -186,43 +191,57 @@ public class OrderManager {
                     if (safeMeta instanceof PotionMeta && origMeta instanceof PotionMeta) {
                         PotionMeta pm = (PotionMeta) safeMeta;
                         PotionMeta originalPm = (PotionMeta) origMeta;
-                        // Only copy base potion data (Type, Extended, Upgraded)
-                        // This strips custom effects and hidden NBT.
                         pm.setBasePotionData(originalPm.getBasePotionData());
                         safe.setItemMeta(pm);
                     } else if (safeMeta instanceof EnchantmentStorageMeta
                             && origMeta instanceof EnchantmentStorageMeta) {
                         EnchantmentStorageMeta em = (EnchantmentStorageMeta) safeMeta;
                         EnchantmentStorageMeta originalEm = (EnchantmentStorageMeta) origMeta;
-                        // Only copy stored enchantments. Strips lore, name, and other tags.
                         originalEm.getStoredEnchants().forEach((ench, lvl) -> {
                             em.addStoredEnchant(ench, lvl, true);
                         });
                         safe.setItemMeta(em);
                     } else {
-                        // Fallback: If it's a variant but not handled above (e.g. unexpected),
-                        // treat it as standard to be safe (strip meta).
-                        // OrderManager.create only supports Potions and Books as variants primarily.
-                        o.storage.add(new ItemStack(it.getType(), it.getAmount()));
+                        // Fallback: Treat as standard
+                        safeStorageToAdd.add(new ItemStack(it.getType(), it.getAmount()));
                         continue;
                     }
-                    o.storage.add(safe);
+                    safeStorageToAdd.add(safe);
                 } else {
                     // Non-variant: Strip everything (Vanilla)
                     ItemStack clean = new ItemStack(it.getType(), it.getAmount());
-                    o.storage.add(clean);
+                    safeStorageToAdd.add(clean);
                 }
             }
+
+            // --- PHASE 2: TRANSACTION EXECUTION ---
             double receive = (double) acceptedAmount * o.priceEach;
             Player delivererPlayer = Bukkit.getPlayer((UUID) deliverer);
+
+            // ATOMIC STEP 1: MONEY
+            boolean moneyGiven = false;
             if (delivererPlayer != null) {
-                this.pl.vault().give((OfflinePlayer) delivererPlayer, receive);
+                moneyGiven = this.pl.vault().give((OfflinePlayer) delivererPlayer, receive);
+                if (!moneyGiven) {
+                    this.pl.getLogger().severe("Vault transaction failed for order " + o.id);
+                    // Abort delivery (Caller must handle item return)
+                    // In current DeliverItemsMenu logic, if we return here, items are returned to
+                    // player. Safe.
+                    return;
+                }
             }
+
+            // ATOMIC STEP 2: STATE UPDATE (Commit)
+            // Money is given, so we MUST commit items now.
+            o.storage.addAll(safeStorageToAdd);
+
             o.delivered += acceptedAmount;
             if (o.delivered >= o.requested) {
                 o.completed = true;
             }
             o.paid = Math.max(0.0, o.totalPrice() - (double) o.delivered * o.priceEach);
+
+            // ATOMIC STEP 3: PERSISTENCE
             this.saveOrder(o);
         }
         this.sendReceiverActionbar(o, deliverer, acceptedAmount);

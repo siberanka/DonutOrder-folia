@@ -62,10 +62,14 @@ public class ConfigManager {
     }
 
     public void reload() {
-        this.plugin.reloadConfig();
-        this.cfg = this.plugin.getConfig();
-        this.saves = YamlConfiguration.loadConfiguration((File) this.savesFile);
-        this.loadDisabled();
+        try {
+            this.plugin.reloadConfig();
+            this.cfg = this.plugin.getConfig();
+            this.saves = YamlConfiguration.loadConfiguration((File) this.savesFile);
+            this.loadDisabled();
+        } catch (Exception e) {
+            this.plugin.getLogger().log(Level.SEVERE, "Failed to reload configuration safely", e);
+        }
     }
 
     private void loadDisabled() {

@@ -33,13 +33,31 @@ public class MenuListener implements Listener {
         this.plugin = pl;
     }
 
-    @EventHandler
+    @EventHandler(priority = org.bukkit.event.EventPriority.LOWEST) // Handle early to set defaults
     public void onClick(InventoryClickEvent e) {
         try {
             InventoryHolder inventoryHolder = e.getInventory().getHolder();
             if (!(inventoryHolder instanceof MenuOwner)) {
                 return;
             }
+
+            // SECURITY 1: Default to cancelled
+            e.setCancelled(true);
+
+            // SECURITY 2: Anti-Dupe / Global Block List
+            // COLLECT_TO_CURSOR (Double Click) is extremely risky for custom GUIs.
+            // Block it globally unless we ever find a really good reason to allow it.
+            if (e.getAction() == org.bukkit.event.inventory.InventoryAction.COLLECT_TO_CURSOR) {
+                e.setCancelled(true);
+                return;
+            }
+
+            // SECURITY 3: Unknown actions
+            if (e.getAction() == org.bukkit.event.inventory.InventoryAction.UNKNOWN) {
+                e.setCancelled(true);
+                return;
+            }
+
             MenuOwner owner = (MenuOwner) inventoryHolder;
             owner.onClick(e);
         } catch (Throwable t) {
@@ -60,13 +78,31 @@ public class MenuListener implements Listener {
         }
     }
 
-    @EventHandler
+    @EventHandler(priority = org.bukkit.event.EventPriority.LOWEST)
     public void onDrag(InventoryDragEvent e) {
         try {
             InventoryHolder inventoryHolder = e.getInventory().getHolder();
             if (!(inventoryHolder instanceof MenuOwner)) {
                 return;
             }
+
+            // SECURITY: Default to cancelled
+            e.setCancelled(true);
+
+            // Check if dragging involves the top inventory (the GUI)
+            boolean involvesGui = false;
+            for (int slot : e.getRawSlots()) {
+                if (slot < e.getView().getTopInventory().getSize()) {
+                    involvesGui = true;
+                    break;
+                }
+            }
+
+            // If it touches the GUI, strict adherence to cancel unless owner overrides
+            if (involvesGui) {
+                e.setCancelled(true);
+            }
+
             MenuOwner owner = (MenuOwner) inventoryHolder;
             owner.onDrag(e);
         } catch (Throwable t) {
