@@ -79,6 +79,20 @@ public class ConfigManager {
         if (this.disabledTokens.isEmpty()) {
             this.disabledTokens.add("SPAWNER");
             this.disabledTokens.add("SPAWNER_EGGS");
+            this.disabledTokens.add("BEDROCK");
+            this.disabledTokens.add("END_PORTAL_FRAME");
+            this.disabledTokens.add("BARRIER");
+            this.disabledTokens.add("STRUCTURE_BLOCK");
+            this.disabledTokens.add("STRUCTURE_VOID");
+            this.disabledTokens.add("JIGSAW");
+            this.disabledTokens.add("COMMAND_BLOCK");
+            this.disabledTokens.add("CHAIN_COMMAND_BLOCK");
+            this.disabledTokens.add("REPEATING_COMMAND_BLOCK");
+            this.disabledTokens.add("LIGHT");
+            this.disabledTokens.add("DEBUG_STICK");
+            this.disabledTokens.add("REINFORCED_DEEPSLATE");
+            this.disabledTokens.add("TRIAL_SPAWNER");
+            this.disabledTokens.add("VAULT");
         }
     }
 

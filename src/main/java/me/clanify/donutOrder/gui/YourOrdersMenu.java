@@ -82,8 +82,8 @@ public class YourOrdersMenu
                 lore.add("&7");
                 lore.addAll(enchLore);
             }
-            ItemStack ui = this.pl.cfg().dynamicItem(o2.key.material, "gui.your.items.order-item", "&f{player}'s Order",
-                    lore, ph);
+            ItemStack ui = this.pl.cfg().dynamicItem(o2.key.material, "gui.your.items.order-item",
+                    this.pl.lang().get("gui.your.items.order-item.displayname", "&f{player}'s Order"), lore, ph);
             ui = GuiVariant.merge(ui, o2.key.buildIcon());
             this.inv.setItem(slot++, ui);
         }

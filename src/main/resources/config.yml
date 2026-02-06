@@ -9,6 +9,20 @@ default-language: en
 disabled-items:
   - SPAWNER
   - SPAWNER_EGGS
+  - BEDROCK
+  - END_PORTAL_FRAME
+  - BARRIER
+  - STRUCTURE_BLOCK
+  - STRUCTURE_VOID
+  - JIGSAW
+  - COMMAND_BLOCK
+  - CHAIN_COMMAND_BLOCK
+  - REPEATING_COMMAND_BLOCK
+  - LIGHT
+  - DEBUG_STICK
+  - REINFORCED_DEEPSLATE
+  - TRIAL_SPAWNER
+  - VAULT
 
 # Minimum price per item to prevent abuse (default: 0.05)
 minimum-price-per-item: 0.05

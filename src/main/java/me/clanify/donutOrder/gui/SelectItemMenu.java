@@ -149,6 +149,11 @@ public class SelectItemMenu
             // Use null for name to force vanilla sorting/display
             ItemStack ui = this.pl.cfg().dynamicItem(ce.base, "gui.select.items.item", null,
                     List.of("&fClick to select"), ph);
+            ItemMeta meta = ui.getItemMeta();
+            if (meta != null) {
+                meta.setDisplayName(null);
+                ui.setItemMeta(meta);
+            }
             ItemKey key = ItemKey.fromStack(ce.stack);
             if (key != null && !(enchLore = key.enchantLoreLines("&7")).isEmpty() && (im = ui.getItemMeta()) != null) {
                 List<String> lore = im.getLore();
