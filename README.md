@@ -4,7 +4,7 @@
 
 A professional Minecraft plugin that enables players to create and manage item orders with a beautifully designed GUI system. Perfect for survival servers looking to streamline item trading and marketplace functionality.
 
-![Version](https://img.shields.io/badge/version-2.1.0-green.svg)
+![Version](https://img.shields.io/badge/version-2.1.1-green.svg)
 ![Minecraft](https://img.shields.io/badge/minecraft-1.21-blue.svg)
 ![Java](https://img.shields.io/badge/java-21-orange.svg)
 ![Folia](https://img.shields.io/badge/folia-supported-brightgreen.svg)
@@ -28,7 +28,7 @@ A professional Minecraft plugin that enables players to create and manage item o
 
 ## 🚀 Installation
 
-1. **Download** the latest `DonutOrder-2.0.0.jar` from the releases
+1. **Download** the latest `DonutOrder-2.1.1.jar` from the releases
 2. **Install Dependencies**: Ensure you have [Vault](https://www.spigotmc.org/resources/vault.34315/) installed
 3. **Place** the JAR file in your server's `plugins` folder
 4. **Restart** your server
@@ -165,6 +165,13 @@ Special thanks to:
 ---
 
 ## 📊 Changelog
+
+### Version 2.1.1
+- **Security Audit & Hardening**:
+  - **Transaction Atomicity**: Strict "Validate -> Payout -> Commit" flow to prevent "Money glitch" or "Item loss".
+  - **Input Safety**: Fixed potential memory leaks and async errors in `ChatInputManager` (Thread-safe maps).
+  - **Lifecycle Management**: Improved `onDisable` cleanup; open plugin GUIs are now force-closed on reload/stop.
+  - **Codebase Cleanup**: Removed legacy checks and verified strict lock ordering.
 
 ### Version 2.1.0
 - **Localization**:
