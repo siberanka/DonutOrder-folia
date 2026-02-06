@@ -1,5 +1,6 @@
 # Maven
 target/
+raw-lang/
 *.class
 dependency-reduced-pom.xml
 
