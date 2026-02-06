@@ -83,6 +83,10 @@ public class NewOrderMenu
     }
 
     public void open() {
+        if (this.pl.bedrock().isBedrockPlayer(this.p)) {
+            this.pl.bedrock().sendNewOrderMenu(this.p);
+            return;
+        }
         boolean skipOnce;
         Material mat;
         ChatInputManager.NewOrderSession s = this.pl.chat().session(this.p.getUniqueId());
@@ -235,7 +239,7 @@ public class NewOrderMenu
                     t = t.replace(" ", "").replace(",", ".");
                     price = Double.parseDouble(t);
                 } catch (Exception ex) {
-                    this.p.sendMessage(this.pl.cfg().msg("messages.amount_invalid",
+                    this.p.sendMessage(this.pl.cfg().msg("messages.price_format_invalid",
                             "&cInvalid price. Please enter a number (e.g. 2.5)."));
                     new NewOrderMenu(this.pl, this.p).open();
                     return;
@@ -308,8 +312,10 @@ public class NewOrderMenu
                 // If create() fails (limit reached, DB error), refund immediately.
                 this.pl.vault().give((OfflinePlayer) this.p, total);
                 this.finalized = false;
-                this.p.sendMessage(Utils.formatColors("&cOrder creation failed: " + ex.getMessage()));
-                this.p.sendMessage(Utils.formatColors("&e" + Utils.abbr(total) + " has been refunded."));
+                this.p.sendMessage(this.pl.cfg().msg("messages.order_create_failed", "&cOrder creation failed: {error}")
+                        .replace("{error}", ex.getMessage() != null ? ex.getMessage() : "Unknown"));
+                this.p.sendMessage(this.pl.cfg().msg("messages.order_refunded", "&e{amount} has been refunded.")
+                        .replace("{amount}", Utils.abbr(total)));
                 ex.printStackTrace();
                 return;
             }

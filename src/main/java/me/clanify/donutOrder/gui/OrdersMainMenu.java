@@ -52,6 +52,9 @@ public class OrdersMainMenu
     private final DonutOrder pl;
     private final Player p;
     private Inventory inv;
+    // Anti-exploit: Click cooldown
+    private long lastClickTime = 0;
+    private static final long CLICK_COOLDOWN_MS = 300;
 
     public OrdersMainMenu(DonutOrder pl, Player p) {
         this.pl = pl;
@@ -71,6 +74,10 @@ public class OrdersMainMenu
     }
 
     public void open() {
+        if (this.pl.bedrock().isBedrockPlayer(this.p)) {
+            this.pl.bedrock().sendOrdersMenu(this.p);
+            return;
+        }
         Set<Material> allow;
         int rows = this.rows();
         this.inv = Bukkit.createInventory((InventoryHolder) this, (int) (rows * 9),
@@ -202,6 +209,12 @@ public class OrdersMainMenu
             return;
         }
         e.setCancelled(true);
+        // Anti-exploit: Click cooldown
+        long now = System.currentTimeMillis();
+        if (now - lastClickTime < CLICK_COOLDOWN_MS)
+            return;
+        lastClickTime = now;
+
         PlayerStateManager.View st = this.pl.state().main(this.p.getUniqueId());
         int prev = this.pl.cfg().slot("gui.orders.items.prev", 45);
         int sort = this.pl.cfg().slot("gui.orders.items.sort", 47);
@@ -262,7 +275,7 @@ public class OrdersMainMenu
                 if (trimmed.equals("-")) {
                     trimmed = "";
                 }
-                st2.search = trimmed.isEmpty() ? null : trimmed;
+                st2.search = Utils.sanitizeSearch(trimmed);
                 st2.page = 0;
                 this.pl.state().saveAllPrefs();
                 new OrdersMainMenu(this.pl, this.p).open();

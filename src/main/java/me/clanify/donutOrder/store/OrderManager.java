@@ -1,24 +1,11 @@
-/*
- * Decompiled with CFR 0.152.
- * 
- * Could not load the following classes:
- *  net.md_5.bungee.api.ChatMessageType
- *  net.md_5.bungee.api.chat.TextComponent
- *  org.bukkit.Bukkit
- *  org.bukkit.Material
- *  org.bukkit.OfflinePlayer
- *  org.bukkit.configuration.file.YamlConfiguration
- *  org.bukkit.entity.Entity
- *  org.bukkit.entity.Player
- *  org.bukkit.inventory.ItemStack
- *  org.bukkit.plugin.Plugin
- */
 package me.clanify.donutOrder.store;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
@@ -27,17 +14,16 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Map;
 import java.util.UUID;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.inventory.meta.EnchantmentStorageMeta;
-import org.bukkit.enchantments.Enchantment;
 import me.clanify.donutOrder.DonutOrder;
 import me.clanify.donutOrder.Utils;
 import me.clanify.donutOrder.data.ItemKey;
 import me.clanify.donutOrder.data.Order;
 import me.clanify.donutOrder.util.TaskUtil;
+import me.clanify.donutOrder.util.AtomicFileUtil;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Bukkit;
@@ -54,15 +40,50 @@ import org.bukkit.util.io.BukkitObjectOutputStream;
 public class OrderManager {
     private final DonutOrder pl;
     public static final int MAX_STORAGE_SIZE = 3500; // DoS Protection Limit
-    private final Map<UUID, Order> orders = new LinkedHashMap<UUID, Order>();
+    private final Map<UUID, Order> orders = new LinkedHashMap<>();
     private final java.util.concurrent.ExecutorService ioExecutor = java.util.concurrent.Executors
             .newSingleThreadExecutor();
     private final File ordersDir;
     // Anti-exploit: Per-order locks for race condition protection
     private final java.util.concurrent.ConcurrentHashMap<UUID, Object> orderLocks = new java.util.concurrent.ConcurrentHashMap<>();
+    // Anti-exploit: Track which player is currently editing which order storage to
+    // prevent race conditions
+    private final java.util.concurrent.ConcurrentHashMap<UUID, UUID> editingOrders = new java.util.concurrent.ConcurrentHashMap<>();
 
-    private Object getLock(UUID orderId) {
+    // Enum for transaction results
+    public enum TransactionResult {
+        SUCCESS,
+        FAILED_ORDER_CLOSED,
+        FAILED_STORAGE_FULL,
+        FAILED_ECONOMY,
+        FAILED_INVALID_ITEMS,
+        FAILED_ORDER_IN_USE
+    }
+
+    public Object getLock(java.util.UUID orderId) {
         return orderLocks.computeIfAbsent(orderId, k -> new Object());
+    }
+
+    public boolean tryLockStorage(UUID orderId, UUID playerId) {
+        UUID current = editingOrders.putIfAbsent(orderId, playerId);
+        return current == null || current.equals(playerId);
+    }
+
+    public void unlockStorage(UUID orderId, UUID playerId) {
+        editingOrders.remove(orderId, playerId);
+    }
+
+    public boolean isStorageLockedByOther(UUID orderId, UUID playerId) {
+        UUID current = editingOrders.get(orderId);
+        return current != null && !current.equals(playerId);
+    }
+
+    /**
+     * Clean up all storage locks held by a player.
+     * Prevents orphaned locks if a player crashes or disconnects mid-edit.
+     */
+    public void unlockAll(UUID playerId) {
+        editingOrders.values().removeIf(id -> id.equals(playerId));
     }
 
     public OrderManager(DonutOrder pl) {
@@ -83,16 +104,21 @@ public class OrderManager {
     public void shutdown() {
         this.ioExecutor.shutdown();
         try {
-            if (!this.ioExecutor.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS)) {
+            if (!this.ioExecutor.awaitTermination(15, java.util.concurrent.TimeUnit.SECONDS)) {
                 this.ioExecutor.shutdownNow();
             }
         } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             this.ioExecutor.shutdownNow();
         }
     }
 
     public Collection<Order> all() {
         return this.orders.values();
+    }
+
+    public Order byId(java.util.UUID orderId) {
+        return this.orders.get(orderId);
     }
 
     private final Object globalLock = new Object();
@@ -125,6 +151,9 @@ public class OrderManager {
             o.completed = false;
             this.orders.put(o.id, o);
             this.saveOrder(o);
+            this.logAudit("CREATE", "Order:" + o.id + " Owner:" + owner + " Item:" + key.toString() + " Amount:"
+                    + amount + " Price:" + priceEach);
+            this.pl.menus().refreshAllOrders();
             return o;
         }
     }
@@ -134,11 +163,28 @@ public class OrderManager {
             o.canceled = true;
             int remaining = o.remainingAmount();
             double refund = (double) remaining * o.priceEach;
-            OfflinePlayer owner = Bukkit.getOfflinePlayer((UUID) o.owner);
-            this.pl.vault().give(owner, refund);
+            OfflinePlayer ownerOp = Bukkit.getOfflinePlayer((UUID) o.owner);
+            this.pl.vault().give(ownerOp, refund);
+
+            // Refund storage items to owner
+            if (!o.storage.isEmpty()) {
+                Player onlineOwner = Bukkit.getPlayer((UUID) o.owner);
+                if (onlineOwner != null) {
+                    for (ItemStack item : o.storage) {
+                        HashMap<Integer, ItemStack> left = onlineOwner.getInventory().addItem(item);
+                        for (ItemStack drop : left.values()) {
+                            onlineOwner.getWorld().dropItemNaturally(onlineOwner.getLocation(), drop);
+                        }
+                    }
+                }
+                o.storage.clear();
+            }
+
             o.requested = o.delivered;
             o.completed = true;
             this.saveOrder(o);
+            this.logAudit("CANCEL", "Order:" + o.id + " Refund:" + refund);
+            this.pl.menus().refreshAllOrders();
         }
     }
 
@@ -151,6 +197,7 @@ public class OrderManager {
 
             // Remove from memory
             this.orders.remove(o.id);
+            this.pl.menus().refreshAllOrders();
         }
 
         // Remove from disk (Async I/O)
@@ -163,20 +210,29 @@ public class OrderManager {
         });
     }
 
-    public void applyDelivery(Order o, List<ItemStack> accepted, int acceptedAmount, UUID deliverer) {
+    public TransactionResult applyDelivery(Order o, List<ItemStack> accepted, int acceptedAmount, UUID deliverer) {
         if (acceptedAmount <= 0) {
-            return;
+            return TransactionResult.FAILED_INVALID_ITEMS;
         }
         // Anti-exploit: Synchronize on per-order lock to prevent race conditions
         synchronized (getLock(o.id)) {
+            if (isStorageLockedByOther(o.id, deliverer)) {
+                return TransactionResult.FAILED_ORDER_IN_USE;
+            }
             // Check if order is still valid
             if (o.completed || o.canceled) {
                 pl.getLogger().warning("Attempted delivery to completed/canceled order: " + o.id);
-                return; // Items will be returned by caller
+                return TransactionResult.FAILED_ORDER_CLOSED;
+            }
+
+            // Check storage limit
+            if (o.storage.size() + accepted.size() > MAX_STORAGE_SIZE) {
+                return TransactionResult.FAILED_STORAGE_FULL;
             }
 
             // --- PHASE 1: VALIDATION & SANITIZATION ---
             List<ItemStack> safeStorageToAdd = new ArrayList<>();
+            int sanitizedAmount = 0;
             for (ItemStack it : accepted) {
                 if (it == null || it.getType() == Material.AIR || it.getAmount() <= 0)
                     continue;
@@ -204,14 +260,23 @@ public class OrderManager {
                     } else {
                         // Fallback: Treat as standard
                         safeStorageToAdd.add(new ItemStack(it.getType(), it.getAmount()));
+                        sanitizedAmount += it.getAmount();
                         continue;
                     }
                     safeStorageToAdd.add(safe);
+                    sanitizedAmount += safe.getAmount();
                 } else {
                     // Non-variant: Strip everything (Vanilla)
                     ItemStack clean = new ItemStack(it.getType(), it.getAmount());
                     safeStorageToAdd.add(clean);
+                    sanitizedAmount += clean.getAmount();
                 }
+            }
+
+            if (sanitizedAmount != acceptedAmount || sanitizedAmount <= 0) {
+                this.pl.getLogger().warning("Rejected delivery due to amount mismatch. order=" + o.id
+                        + " acceptedAmount=" + acceptedAmount + " sanitizedAmount=" + sanitizedAmount);
+                return TransactionResult.FAILED_INVALID_ITEMS;
             }
 
             // --- PHASE 2: TRANSACTION EXECUTION ---
@@ -220,15 +285,14 @@ public class OrderManager {
 
             // ATOMIC STEP 1: MONEY
             boolean moneyGiven = false;
-            if (delivererPlayer != null) {
-                moneyGiven = this.pl.vault().give((OfflinePlayer) delivererPlayer, receive);
-                if (!moneyGiven) {
-                    this.pl.getLogger().severe("Vault transaction failed for order " + o.id);
-                    // Abort delivery (Caller must handle item return)
-                    // In current DeliverItemsMenu logic, if we return here, items are returned to
-                    // player. Safe.
-                    return;
-                }
+            // Only give money if deliverer is online, otherwise vault might fail?
+            // Vault usually supports offline players.
+            OfflinePlayer delivererOp = delivererPlayer != null ? delivererPlayer : Bukkit.getOfflinePlayer(deliverer);
+            moneyGiven = this.pl.vault().give(delivererOp, receive);
+
+            if (!moneyGiven) {
+                this.pl.getLogger().severe("Vault transaction failed for order " + o.id);
+                return TransactionResult.FAILED_ECONOMY;
             }
 
             // ATOMIC STEP 2: STATE UPDATE (Commit)
@@ -238,13 +302,43 @@ public class OrderManager {
             o.delivered += acceptedAmount;
             if (o.delivered >= o.requested) {
                 o.completed = true;
+                // Notify owner of completion
+                this.sendCompletedActionbar(o);
             }
             o.paid = Math.max(0.0, o.totalPrice() - (double) o.delivered * o.priceEach);
 
             // ATOMIC STEP 3: PERSISTENCE
             this.saveOrder(o);
+            this.pl.menus().refreshAllOrders();
         }
+        this.logAudit("DELIVERY",
+                "Order:" + o.id + " Deliverer:" + deliverer + " Amount:" + acceptedAmount + " Price:" + o.priceEach);
         this.sendReceiverActionbar(o, deliverer, acceptedAmount);
+        return TransactionResult.SUCCESS;
+    }
+
+    private void logAudit(String type, String details) {
+        // Simple append-only log
+        final String logEntry = String.format("[%s] [%s] %s%n",
+                java.time.Instant.now().toString(), type, details);
+
+        ioExecutor.submit(() -> {
+            File logFile = new File(pl.getDataFolder(), "audit.log");
+
+            // Log Rotation: If > 1MB, rename to .old and start fresh
+            if (logFile.exists() && logFile.length() > 1024 * 1024) {
+                File oldLogFile = new File(pl.getDataFolder(), "audit.log.old");
+                if (oldLogFile.exists())
+                    oldLogFile.delete();
+                logFile.renameTo(oldLogFile);
+            }
+
+            try (java.io.FileWriter fw = new java.io.FileWriter(logFile, true)) {
+                fw.write(logEntry);
+            } catch (IOException e) {
+                pl.getLogger().warning("Failed to write audit log: " + e.getMessage());
+            }
+        });
     }
 
     private void sendReceiverActionbar(Order o, UUID deliverer, int acceptedAmount) {
@@ -267,10 +361,27 @@ public class OrderManager {
             ph.put("player", delivererName);
             ph.put("amount", String.valueOf(acceptedAmount));
             ph.put("item", o.key.displayName());
-            String raw = this.pl.cfg().cfg().getString("messages.received_actionbar",
+
+            // Use LangManager via msg() or direct lang() access
+            // pl.cfg().msg() looks up in lang file first
+            String msg = this.pl.cfg().msg("messages.received_actionbar",
                     "&a{player} has delivered you {amount} {item}!");
-            String msg = Utils.applyPlaceholders(raw, ph);
-            msg = Utils.formatColors(msg);
+            msg = Utils.applyPlaceholders(msg, ph);
+            receiver.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent.fromLegacyText((String) msg));
+        });
+    }
+
+    private void sendCompletedActionbar(Order o) {
+        Player receiver = Bukkit.getPlayer((UUID) o.owner);
+        if (receiver == null) {
+            return;
+        }
+        TaskUtil.runEntity((Plugin) this.pl, (Entity) receiver, () -> {
+            HashMap<String, String> ph = new HashMap<String, String>();
+            ph.put("item", o.key.displayName());
+
+            String msg = this.pl.cfg().msg("messages.completed_actionbar", "&a{item} order is now COMPLETED!");
+            msg = Utils.applyPlaceholders(msg, ph);
             receiver.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent.fromLegacyText((String) msg));
         });
     }
@@ -384,7 +495,18 @@ public class OrderManager {
             }
 
             File f = new File(ordersDir, orderId.toString() + ".yml");
-            YamlConfiguration cfg = new YamlConfiguration();
+
+            // ATOMIC STEP 0: BACKUP (Durability)
+            if (f.exists()) {
+                File bak = new File(ordersDir, orderId.toString() + ".bak");
+                try {
+                    Files.copy(f.toPath(), bak.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                } catch (IOException e) {
+                    pl.getLogger().warning("Failed to create backup for order " + orderId + ": " + e.getMessage());
+                }
+            }
+
+            final YamlConfiguration cfg = new YamlConfiguration();
 
             cfg.set("id", orderId.toString());
             cfg.set("owner", ownerStr);
@@ -398,7 +520,18 @@ public class OrderManager {
             cfg.set("storage", storageBase64);
 
             try {
-                cfg.save(f);
+                // Use AtomicFileUtil for safe writing
+                AtomicFileUtil.write(f, (fos) -> {
+                    try {
+                        // We need a way to write YamlConfiguration to stream
+                        // YamlConfiguration.save(File) is standard but not stream based.
+                        // We can use saveToString() and write bytes.
+                        String yamlData = cfg.saveToString();
+                        fos.write(yamlData.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
             } catch (IOException ex) {
                 pl.getLogger().severe("Failed to save order " + orderId + ": " + ex.getMessage());
             }

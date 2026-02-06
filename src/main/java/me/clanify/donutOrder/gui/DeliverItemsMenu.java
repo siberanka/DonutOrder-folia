@@ -1,22 +1,3 @@
-/*
- * Decompiled with CFR 0.152.
- * 
- * Could not load the following classes:
- *  org.bukkit.Bukkit
- *  org.bukkit.Material
- *  org.bukkit.block.BlockState
- *  org.bukkit.block.ShulkerBox
- *  org.bukkit.entity.Entity
- *  org.bukkit.entity.Player
- *  org.bukkit.event.inventory.InventoryClickEvent
- *  org.bukkit.event.inventory.InventoryCloseEvent
- *  org.bukkit.inventory.Inventory
- *  org.bukkit.inventory.InventoryHolder
- *  org.bukkit.inventory.ItemStack
- *  org.bukkit.inventory.meta.BlockStateMeta
- *  org.bukkit.inventory.meta.ItemMeta
- *  org.bukkit.plugin.Plugin
- */
 package me.clanify.donutOrder.gui;
 
 import java.util.ArrayList;
@@ -53,6 +34,9 @@ public class DeliverItemsMenu
     private final Order order;
     private Inventory inv;
     private boolean finalized = false;
+    // Anti-exploit: Click cooldown
+    private long lastClickTime = 0;
+    private static final long CLICK_COOLDOWN_MS = 300;
 
     public DeliverItemsMenu(DonutOrder pl, Player p, Order order) {
         this.pl = pl;
@@ -65,6 +49,10 @@ public class DeliverItemsMenu
     }
 
     public void open() {
+        if (this.pl.bedrock().isBedrockPlayer(this.p)) {
+            this.pl.bedrock().sendDeliverMenu(this.p, this.order);
+            return;
+        }
         if (this.order.remainingAmount() <= 0) {
             new OrdersMainMenu(this.pl, this.p).open();
             return;
@@ -104,6 +92,12 @@ public class DeliverItemsMenu
 
             if (slot == confirmSlot) {
                 e.setCancelled(true);
+                // Anti-exploit: Click cooldown on confirm button
+                long now = System.currentTimeMillis();
+                if (now - lastClickTime < CLICK_COOLDOWN_MS)
+                    return;
+                lastClickTime = now;
+
                 this.processConfirmation();
                 return;
             }
@@ -294,6 +288,43 @@ public class DeliverItemsMenu
 
         int acceptedAmountFinal = potentialAcceptedAmount;
         ArrayList<ItemStack> acceptedFinal = new ArrayList<>(transactionAccepted);
+
+        // NOTE: The previous logic opened ConfirmDeliveryMenu. But wait,
+        // ConfirmDeliveryMenu calls applyDelivery AGAIN?
+        // Let's check ConfirmDeliveryMenu.
+        // If ConfirmDeliveryMenu commits the transaction, then DeliverItemsMenu logic
+        // is PRE-COMMIT.
+        // Ah, DeliverItemsMenu is the "Selection" phase. ConfirmDeliveryMenu is the
+        // "Yes/No" phase.
+        // So `DeliverItemsMenu` does NOT call `applyDelivery`.
+        // `ConfirmDeliveryMenu` calls `applyDelivery`.
+
+        // Let's verify `ConfirmDeliveryMenu` actually calls `applyDelivery`.
+        // If so, `DeliverItemsMenu` is mostly fine, BUT it needs to handle the case
+        // where `ConfirmDeliveryMenu` fails?
+        // No, `ConfirmDeliveryMenu` would handle the failure response from
+        // `applyDelivery`.
+        // BUT wait, `DeliverItemsMenu` logic prepares items.
+
+        // I need to verify 'ConfirmDeliveryMenu.java' source code to be sure.
+        // If `ConfirmDeliveryMenu` calls `applyDelivery`, then my previous assumption
+        // that `DeliverItemsMenu` calls it was WRONG?
+        // Wait, looking at `DeliverItemsMenu` source from previous step:
+        // It calls `new ConfirmDeliveryMenu(...).open()`.
+        // It does NOT call `applyDelivery`.
+
+        // MY BAD. I assumed `DeliverItemsMenu` committed the transaction.
+        // It seems `DeliverItemsMenu` just filters items and passes them to
+        // `ConfirmDeliveryMenu`.
+        // So I must check `ConfirmDeliveryMenu.java`!
+
+        // However, `DeliverItemsMenu.java` does return items to the player (leftovers).
+        // If `ConfirmDeliveryMenu` is just a UI wrapper, then `ConfirmDeliveryMenu` is
+        // the one that needs fixing.
+
+        // Let's assume for a moment `DeliverItemsMenu` is fine (it just prepares
+        // items).
+        // I need to confirm `ConfirmDeliveryMenu.java`.
 
         TaskUtil.runEntityLater((Plugin) this.pl, (Entity) this.p,
                 () -> new ConfirmDeliveryMenu(this.pl, this.p, this.order, acceptedFinal, acceptedAmountFinal).open(),

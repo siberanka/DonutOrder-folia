@@ -14,7 +14,6 @@ package me.clanify.donutOrder.gui;
 
 import java.util.logging.Level;
 import me.clanify.donutOrder.DonutOrder;
-import me.clanify.donutOrder.Utils;
 import me.clanify.donutOrder.gui.MenuOwner;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.event.Cancellable;
@@ -24,6 +23,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.InventoryHolder;
 
 public class MenuListener implements Listener {
@@ -116,11 +116,23 @@ public class MenuListener implements Listener {
                 ((Cancellable) event).setCancelled(true);
             }
             who.closeInventory();
-            who.sendMessage(Utils.formatColors("&cAn internal error occurred. Menu closed for safety."));
+            who.sendMessage(this.plugin.cfg().msg("messages.internal_menu_error",
+                    "&cAn internal error occurred. Menu closed for safety."));
             this.plugin.getLogger().log(Level.SEVERE, "Exception in GUI event for " + who.getName(), t);
         } catch (Throwable secondary) {
             this.plugin.getLogger().severe("Fail-safe error: " + secondary.getMessage());
             secondary.printStackTrace();
         }
+    }
+
+    /**
+     * Clean up Bedrock player state when they disconnect.
+     * Prevents orphaned form tracking and rate limiter entries.
+     */
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent e) {
+        java.util.UUID uuid = e.getPlayer().getUniqueId();
+        this.plugin.bedrock().onPlayerQuit(uuid);
+        this.plugin.orders().unlockAll(uuid);
     }
 }

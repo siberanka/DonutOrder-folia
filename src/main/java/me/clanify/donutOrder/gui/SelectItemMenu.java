@@ -62,6 +62,9 @@ public class SelectItemMenu
     private final List<ItemCatalog.Entry> pageEntries = new ArrayList<ItemCatalog.Entry>();
     private int page = 0;
     private boolean suppressClose = false;
+    // Anti-exploit: Click cooldown
+    private long lastClickTime = 0;
+    private static final long CLICK_COOLDOWN_MS = 300;
 
     public SelectItemMenu(DonutOrder pl, Player p) {
         this.pl = pl;
@@ -219,6 +222,12 @@ public class SelectItemMenu
             return;
         }
         e.setCancelled(true);
+        // Anti-exploit: Click cooldown
+        long now = System.currentTimeMillis();
+        if (now - lastClickTime < CLICK_COOLDOWN_MS)
+            return;
+        lastClickTime = now;
+
         PlayerStateManager.ItemView v = this.pl.state().items(this.p.getUniqueId());
         int rows = this.pl.cfg().rows("select", 6);
         int prevSlot = this.pl.cfg().slot("gui.select.items.prev", (rows - 1) * 9);
@@ -272,15 +281,14 @@ public class SelectItemMenu
             this.p.closeInventory();
             ConfigurationSection sec = this.pl.cfg().cfg().getConfigurationSection("search-sign");
             SignInputUtil.openFromConfig(this.pl, this.p, sec, input -> {
-                String trimmed;
                 if (!this.p.isOnline()) {
                     return;
                 }
-                String string = trimmed = input == null ? "" : input.trim();
+                String trimmed = input == null ? "" : input.trim();
                 if (trimmed.equals("-")) {
                     trimmed = "";
                 }
-                v.search = trimmed.isEmpty() ? null : trimmed;
+                v.search = Utils.sanitizeSearch(trimmed);
                 this.page = 0;
                 this.pl.state().saveAllPrefs();
                 new SelectItemMenu(this.pl, this.p).open();
@@ -298,7 +306,15 @@ public class SelectItemMenu
             this.page = 0;
             this.pl.state().saveAllPrefs();
             this.suppressClose = true;
-            new NewOrderMenu(this.pl, this.p).open();
+
+            // Bedrock players: redirect to Bedrock order details form
+            if (this.pl.bedrock().isBedrockPlayer(this.p)) {
+                this.p.closeInventory();
+                this.pl.bedrock().sendOrderDetailsForm(this.p,
+                        me.clanify.donutOrder.data.ItemKey.fromStack(chosen.stack), false);
+            } else {
+                new NewOrderMenu(this.pl, this.p).open();
+            }
         }
     }
 

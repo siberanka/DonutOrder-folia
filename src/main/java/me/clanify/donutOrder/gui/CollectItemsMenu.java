@@ -93,20 +93,12 @@ public class CollectItemsMenu
         }
 
         // Security: Prevent multiple players (or same player glitch) from opening the
-        // same storage
-        for (Player other : Bukkit.getOnlinePlayers()) {
-            if (other.equals(this.p))
-                continue;
-            Inventory top = other.getOpenInventory().getTopInventory();
-            if (top != null && top.getHolder() instanceof CollectItemsMenu) {
-                CollectItemsMenu m = (CollectItemsMenu) top.getHolder();
-                if (m.order.id.equals(this.order.id)) {
-                    this.p.sendMessage(me.clanify.donutOrder.Utils
-                            .formatColors("&cThis order is currently being viewed by someone else."));
-                    this.p.closeInventory();
-                    return;
-                }
-            }
+        // same storage using central manager lock
+        if (!this.pl.orders().tryLockStorage(this.order.id, this.p.getUniqueId())) {
+            this.p.sendMessage(this.pl.cfg().msg("messages.order_in_use",
+                    "&cThis order is currently being viewed by someone else."));
+            this.p.closeInventory();
+            return;
         }
 
         int rows = this.rows();
@@ -204,6 +196,9 @@ public class CollectItemsMenu
         if (clickedPlayer) {
             if (e.isShiftClick()) {
                 e.setCancelled(true);
+            } else {
+                // ALLOW standard interaction in player inventory (Place, Swap, Pickup)
+                e.setCancelled(false);
             }
             return;
         }
@@ -231,6 +226,13 @@ public class CollectItemsMenu
             e.setCancelled(false);
             return;
         }
+
+        // Allow dropping items outside inventory (clicking border/nothing)
+        if (e.getClickedInventory() == null) {
+            e.setCancelled(false);
+            return;
+        }
+
         e.setCancelled(true);
     }
 
@@ -243,17 +245,28 @@ public class CollectItemsMenu
         int rows = this.rows();
         int topSize = rows * 9;
         int controlStart = (rows - 1) * 9;
-        Iterator iterator = e.getRawSlots().iterator();
-        while (iterator.hasNext()) {
-            int raw = (Integer) iterator.next();
+
+        boolean safe = true;
+        for (int raw : e.getRawSlots()) {
             if (raw >= 0 && raw < controlStart) {
-                e.setCancelled(true);
-                return;
+                // Dragging over item slots in GUI -> Block
+                safe = false;
+                break;
             }
-            if (raw < controlStart || raw >= topSize)
-                continue;
+            // If dragging over button slots (controlStart..topSize), strictly block or
+            // allow?
+            // Usually buttons shouldn't be dragged over.
+            if (raw >= controlStart && raw < topSize) {
+                safe = false;
+                break;
+            }
+        }
+
+        if (safe) {
+            // If we are here, it means we are only dragging in player inventory
+            e.setCancelled(false);
+        } else {
             e.setCancelled(true);
-            return;
         }
     }
 
@@ -262,6 +275,10 @@ public class CollectItemsMenu
         if (e.getInventory().getHolder() != this) {
             return;
         }
+
+        // Ensure we release the storage lock
+        this.pl.orders().unlockStorage(this.order.id, this.p.getUniqueId());
+
         if (this.internalPageSwitch) {
             this.internalPageSwitch = false;
             return;
@@ -278,25 +295,38 @@ public class CollectItemsMenu
     }
 
     private void flushCurrentPageToStorage() {
-        int i;
         if (this.inv == null) {
             return;
         }
-        int per = this.perPage();
-        int from = this.currentPage * per;
-        int maxRem = Math.min(per, Math.max(0, this.order.storage.size() - from));
-        for (i = 0; i < maxRem; ++i) {
-            if (from >= this.order.storage.size())
-                continue;
-            this.order.storage.remove(from);
+        synchronized (this.pl.orders().getLock(this.order.id)) {
+            int per = this.perPage();
+            int from = this.currentPage * per;
+
+            // Rebuild a local version of storage to ensure atomicity
+            List<ItemStack> newStorage = new ArrayList<>(this.order.storage);
+
+            // 1. Remove items that were on this page in storage
+            int maxRem = Math.min(per, Math.max(0, newStorage.size() - from));
+            for (int i = 0; i < maxRem; ++i) {
+                if (from < newStorage.size()) {
+                    newStorage.remove(from);
+                }
+            }
+
+            // 2. Add current items from GUI back to the local list
+            for (int i = 0; i < per && i < this.inv.getSize(); ++i) {
+                ItemStack cur = this.inv.getItem(i);
+                if (cur == null || cur.getType() == Material.AIR || cur.getAmount() <= 0)
+                    continue;
+                newStorage.add(Math.min(from + i, newStorage.size()), cur.clone());
+            }
+
+            // 3. Cleanup and Commit
+            newStorage.removeIf(it -> it == null || it.getType() == Material.AIR || it.getAmount() <= 0);
+
+            this.order.storage.clear();
+            this.order.storage.addAll(newStorage);
         }
-        for (i = 0; i < per && i < this.inv.getSize(); ++i) {
-            ItemStack cur = this.inv.getItem(i);
-            if (cur == null || cur.getType() == Material.AIR || cur.getAmount() <= 0)
-                continue;
-            this.order.storage.add(Math.min(from + i, this.order.storage.size()), cur.clone());
-        }
-        this.order.storage.removeIf(it -> it == null || it.getType() == Material.AIR || it.getAmount() <= 0);
     }
 
     private void dropCurrentPageInGui() {

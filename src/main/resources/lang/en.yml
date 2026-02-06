@@ -6,6 +6,7 @@
 # ======================================
 messages:
   usage: "&cUsage: /orders"
+  players_only: "&cThis command can only be used by players."
   no_permission: "&cYou don't have permission to do that."
   reloaded: "&aDonutOrder configuration reloaded!"
   unknown_command: "&cUnknown subcommand."
@@ -21,6 +22,7 @@ messages:
   player_offline: "&cThat player is offline."
   order_full: "&#9e9e9eOrder is &#16bf6dfull&#9e9e9e."
   received_actionbar: "&#16bf6d{player} &#9e9e9ehas delivered you &#16bf6d{amount} {item}&#9e9e9e!"
+  completed_actionbar: "&#34ee80{item} &#9e9e9eorder is now &#39FF14COMPLETED&#9e9e9e!"
   # Price and amount validation
   amount_min: "&cAmount must be at least 1."
   amount_max: "&cAmount limit is {max} items per order."
@@ -35,6 +37,19 @@ messages:
   storage_full: "&cOrder storage is full! Cannot deliver more items."
   no_valid_items: "&cNo valid items provided."
   order_in_use: "&cThis order is currently being viewed by someone else."
+  internal_menu_error: "&cAn internal error occurred. Menu closed for safety."
+  order_create_failed: "&cOrder creation failed: {error}"
+  order_refunded: "&e{amount} has been refunded."
+  price_format_invalid: "&cInvalid price. Please enter a number (e.g. 2.5)."
+  sign_input_no_space: "&#ff4444No space to open sign input."
+  sign_input_create_failed: "&#ff4444Failed to create sign."
+  sign_input_disappeared: "&#ff4444Sign disappeared."
+  sign_input_open_failed: "&#ff4444Failed to open sign input."
+  delivery_failed_generic: "&cTransaction failed."
+  delivery_failed_closed: "&cOrder no longer active."
+  delivery_failed_storage_full: "&cOrder storage full."
+  delivery_failed_in_use: "&cOrder is currently in use."
+  delivery_failed_economy: "&cEconomy error."
 
 # ======================================
 # Sort Names (for sorting dropdown)
@@ -279,3 +294,71 @@ items:
   REDSTONE: "Redstone"
   OAK_LOG: "Oak Log"
   OBSIDIAN: "Obsidian"
+
+# ======================================
+# Bedrock Forms (Geyser/Floodgate)
+# ======================================
+bedrock:
+  orders:
+    new_btn: "Create New Order"
+    sort_btn: "Sort: {value}"
+    filter_btn: "Filter: {value}"
+    search_btn: "Search"
+    your_orders_btn: "Your Orders"
+    refresh_btn: "Refresh"
+    item_format: "{name} (x{amount}) - ${price} - {owner}"
+  new_order:
+    choose_title: "New Order"
+    choose_content: "How do you want to create the order?"
+    choose_item_btn: "Select Item"
+    from_hand_btn: "Use Item In Hand"
+    item_input: "Item (Material Name)"
+    item_placeholder: "e.g. STONE"
+    amount_input: "Amount"
+    price_input: "Price per Item"
+    success: "&aOrder created successfully!"
+    error_material: "&cInvalid material: {input}"
+    error_amount: "&cInvalid amount."
+    error_price: "&cInvalid price."
+    error_hand_missing: "&cItem missing from hand!"
+    error_generic: "&cError: {error}"
+  deliver:
+    title: "Deliver Items"
+    content: "Item: {item}\nPrice: {price}\nRemaining: {remaining}\nCan deliver now: {deliverable}"
+    amount_input: "Amount To Deliver"
+    amount_placeholder: "Enter amount"
+    yes_btn: "Yes, Deliver"
+    cancel_btn: "Cancel"
+    success: "&aDelivered {amount} items and earned ${total}!"
+    no_items: "&cYou do not have this item in your inventory."
+    error_amount: "&cInvalid amount."
+    error_exceeds_remaining: "&cYou can deliver at most {max} items for this order."
+    error_exceeds_inventory: "&cYou only have {max} deliverable items in your inventory."
+    error_inventory_changed: "&cYour inventory changed during delivery. Please try again."
+    failed_closed: "&cOrder is no longer active."
+    failed_storage_full: "&cOrder storage is full."
+    failed_in_use: "&cOrder is currently in use."
+    failed_generic: "&cDelivery failed: {reason}"
+  your_orders:
+    title: "Your Orders"
+    item_format: "{item} ({delivered}/{requested})"
+  action:
+    title: "Manage Order"
+    content: "{item}"
+    collect_btn: "Collect Money"
+    collect_items_btn: "Collect Items"
+    cancel_btn: "Cancel Order"
+    back_btn: "Back"
+    collected: "&aCollected {amount}"
+    no_money: "&cNo money to collect."
+    cancelled: "&aOrder canceled and refunded {amount}"
+    error_not_found: "&cOrder no longer exists."
+    error_not_owner: "&cThis is not your order."
+    error_canceled: "&cOrder is already canceled."
+    error_cannot_cancel: "&cCannot cancel this order."
+    error_completed: "&cThis order is completed."
+  search:
+    title: "Search"
+    input_label: "Search Query"
+    placeholder: "e.g. Diamond"
+

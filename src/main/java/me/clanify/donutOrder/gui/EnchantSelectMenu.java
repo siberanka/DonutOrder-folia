@@ -60,6 +60,9 @@ public class EnchantSelectMenu
     private List<EnchantmentsManager.EnchantOption> options = List.of();
     private List<Integer> gridSlots = List.of();
     private int page = 0;
+    // Anti-exploit: Click cooldown
+    private long lastClickTime = 0;
+    private static final long CLICK_COOLDOWN_MS = 300;
 
     public EnchantSelectMenu(DonutOrder pl, Player p, ItemStack base) {
         this.pl = pl;
@@ -212,6 +215,12 @@ public class EnchantSelectMenu
             return;
         }
         e.setCancelled(true);
+        // Anti-exploit: Click cooldown
+        long now = System.currentTimeMillis();
+        if (now - lastClickTime < CLICK_COOLDOWN_MS)
+            return;
+        lastClickTime = now;
+
         EnchantmentsManager.GUI gui = this.pl.ench().gui();
         int s = e.getSlot();
         if (s == gui.slotPrev) {

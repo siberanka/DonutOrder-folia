@@ -1,18 +1,3 @@
-/*
- * Decompiled with CFR 0.152.
- * 
- * Could not load the following classes:
- *  org.bukkit.Bukkit
- *  org.bukkit.Material
- *  org.bukkit.entity.Entity
- *  org.bukkit.entity.Player
- *  org.bukkit.event.inventory.InventoryClickEvent
- *  org.bukkit.event.inventory.InventoryCloseEvent
- *  org.bukkit.inventory.Inventory
- *  org.bukkit.inventory.InventoryHolder
- *  org.bukkit.inventory.ItemStack
- *  org.bukkit.plugin.Plugin
- */
 package me.clanify.donutOrder.gui;
 
 import java.util.ArrayList;
@@ -26,6 +11,7 @@ import me.clanify.donutOrder.gui.DeliverItemsMenu;
 import me.clanify.donutOrder.gui.GuiVariant;
 import me.clanify.donutOrder.gui.MenuOwner;
 import me.clanify.donutOrder.gui.OrdersMainMenu;
+import me.clanify.donutOrder.store.OrderManager;
 import me.clanify.donutOrder.util.TaskUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -132,10 +118,15 @@ public class ConfirmDeliveryMenu
             if (this.finalized)
                 return;
 
-            // Anti-exploit: Check if order is still valid before delivery
-            if (this.order.completed || this.order.canceled) {
-                this.p.sendMessage(me.clanify.donutOrder.Utils.formatColors("&cThis order is no longer available."));
-                this.finalized = true;
+            this.pl.cfg().play(this.p, "sounds.confirm", "ENTITY_EXPERIENCE_ORB_PICKUP", 1.0f, 1.2f);
+
+            // Mark finalized so we handle all returns explicitly from here
+            this.finalized = true;
+
+            Order fresh = this.pl.orders().byId(this.order.id);
+            if (fresh == null || fresh.canceled || fresh.completed || fresh.remainingAmount() <= 0) {
+                this.p.sendMessage(this.pl.cfg().msg("messages.delivery_failed_closed",
+                        "&cOrder no longer active."));
                 for (ItemStack is : this.accepted) {
                     this.giveBackOrDrop(is);
                 }
@@ -144,13 +135,37 @@ public class ConfirmDeliveryMenu
                 return;
             }
 
-            this.pl.cfg().play(this.p, "sounds.confirm", "ENTITY_EXPERIENCE_ORB_PICKUP", 1.0f, 1.2f);
-            this.finalized = true;
-            this.pl.orders().applyDelivery(this.order, this.accepted, this.acceptedAmount, this.p.getUniqueId());
-            if (this.order.remainingAmount() > 0) {
-                TaskUtil.runEntityLater((Plugin) this.pl, (Entity) this.p,
-                        () -> new DeliverItemsMenu(this.pl, this.p, this.order).open(), 1L);
+            OrderManager.TransactionResult result = this.pl.orders().applyDelivery(fresh, this.accepted,
+                    this.acceptedAmount, this.p.getUniqueId());
+
+            if (result == OrderManager.TransactionResult.SUCCESS) {
+                // SUCCESS
+                if (fresh.remainingAmount() > 0) {
+                    TaskUtil.runEntityLater((Plugin) this.pl, (Entity) this.p,
+                            () -> new DeliverItemsMenu(this.pl, this.p, fresh).open(), 1L);
+                } else {
+                    TaskUtil.runEntityLater((Plugin) this.pl, (Entity) this.p,
+                            () -> new OrdersMainMenu(this.pl, this.p).open(), 1L);
+                }
             } else {
+                // FAILED - Refund items
+                String reason = this.pl.cfg().msg("messages.delivery_failed_generic", "&cTransaction failed.");
+                if (result == OrderManager.TransactionResult.FAILED_ORDER_CLOSED)
+                    reason = this.pl.cfg().msg("messages.delivery_failed_closed", "&cOrder no longer active.");
+                if (result == OrderManager.TransactionResult.FAILED_ORDER_IN_USE)
+                    reason = this.pl.cfg().msg("messages.delivery_failed_in_use", "&cOrder is currently in use.");
+                if (result == OrderManager.TransactionResult.FAILED_STORAGE_FULL)
+                    reason = this.pl.cfg().msg("messages.delivery_failed_storage_full", "&cOrder storage full.");
+                if (result == OrderManager.TransactionResult.FAILED_ECONOMY)
+                    reason = this.pl.cfg().msg("messages.delivery_failed_economy", "&cEconomy error.");
+
+                this.p.sendMessage(reason);
+
+                for (ItemStack is : this.accepted) {
+                    this.giveBackOrDrop(is);
+                }
+
+                // Return to main menu or previous menu? Main menu is safer if order is closed.
                 TaskUtil.runEntityLater((Plugin) this.pl, (Entity) this.p,
                         () -> new OrdersMainMenu(this.pl, this.p).open(), 1L);
             }

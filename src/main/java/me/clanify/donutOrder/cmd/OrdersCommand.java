@@ -13,6 +13,7 @@ package me.clanify.donutOrder.cmd;
 import java.util.Collections;
 import java.util.List;
 import me.clanify.donutOrder.DonutOrder;
+import me.clanify.donutOrder.Utils;
 import me.clanify.donutOrder.gui.OrdersMainMenu;
 import me.clanify.donutOrder.store.PlayerStateManager;
 import org.bukkit.command.Command;
@@ -32,14 +33,14 @@ TabCompleter {
 
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) {
-            sender.sendMessage("This command can only be used by players.");
+            sender.sendMessage(this.plugin.cfg().msg("messages.players_only", "&cThis command can only be used by players."));
             return true;
         }
         Player p = (Player)sender;
         PlayerStateManager.View state = this.plugin.state().main(p.getUniqueId());
         if (args.length > 0) {
             String query = String.join((CharSequence)" ", args).trim();
-            state.search = query.isEmpty() ? null : query.toLowerCase();
+            state.search = Utils.sanitizeSearch(query);
             state.page = 0;
         }
         new OrdersMainMenu(this.plugin, p).open();

@@ -52,6 +52,9 @@ public class EditOrderMenu
     private final Player p;
     private final Order order;
     private Inventory inv;
+    // Anti-exploit: Click cooldown
+    private long lastClickTime = 0;
+    private static final long CLICK_COOLDOWN_MS = 300;
 
     public EditOrderMenu(DonutOrder pl, Player p, Order order) {
         this.pl = pl;
@@ -64,6 +67,10 @@ public class EditOrderMenu
     }
 
     public void open() {
+        if (this.pl.bedrock().isBedrockPlayer(this.p)) {
+            this.pl.bedrock().sendOrderActionMenu(this.p, this.order);
+            return;
+        }
         boolean canCancel;
         int rows = this.pl.cfg().rows("edit", 3);
         this.inv = Bukkit.createInventory((InventoryHolder) this, (int) (rows * 9),
@@ -124,6 +131,12 @@ public class EditOrderMenu
             return;
         }
         e.setCancelled(true);
+        // Anti-exploit: Click cooldown
+        long now = System.currentTimeMillis();
+        if (now - lastClickTime < CLICK_COOLDOWN_MS)
+            return;
+        lastClickTime = now;
+
         int slot = e.getSlot();
         if (slot == 13 && !this.order.completed) {
             this.pl.cfg().play(this.p, "sounds.click", "UI_BUTTON_CLICK", 1.0f, 1.0f);

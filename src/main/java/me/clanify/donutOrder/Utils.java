@@ -81,6 +81,20 @@ public final class Utils {
         return lines.stream().map(Utils::formatColors).collect(Collectors.toList());
     }
 
+    /**
+     * Sanitizes search input to prevent exploits and ensure reasonable length.
+     * Strips all colors and limits to 32 characters.
+     */
+    public static String sanitizeSearch(String input) {
+        if (input == null)
+            return null;
+        String s = ChatColor.stripColor(input).trim();
+        if (s.length() > 32) {
+            s = s.substring(0, 32);
+        }
+        return s.isEmpty() ? null : s;
+    }
+
     public static String applyPlaceholders(String s, Map<String, String> ph) {
         if (s == null) {
             return null;
@@ -119,7 +133,8 @@ public final class Utils {
             SignInputUtil.cleanupAndRemove(player, plugin, true);
             Location loc = SignInputUtil.findNearbyAir(player);
             if (loc == null) {
-                player.sendMessage(Utils.formatColors("&#ff4444No space to open sign input."));
+                player.sendMessage(SignInputUtil.signMsg(plugin, "messages.sign_input_no_space",
+                        "&#ff4444No space to open sign input."));
                 return;
             }
             Block block = loc.getBlock();
@@ -147,7 +162,8 @@ public final class Utils {
                 b.setType(Material.OAK_SIGN, false);
                 if (!(b.getState() instanceof Sign)) {
                     SignInputUtil.cleanupAndRemove(player, plugin, true);
-                    player.sendMessage(Utils.formatColors("&#ff4444Failed to create sign."));
+                    player.sendMessage(SignInputUtil.signMsg(plugin, "messages.sign_input_create_failed",
+                            "&#ff4444Failed to create sign."));
                     return;
                 }
                 Sign sign = (Sign) b.getState();
@@ -163,17 +179,26 @@ public final class Utils {
                     Block now = finalLoc.getBlock();
                     if (!(now.getState() instanceof Sign)) {
                         SignInputUtil.cleanupAndRemove(player, plugin, true);
-                        player.sendMessage(Utils.formatColors("&#ff4444Sign disappeared."));
+                        player.sendMessage(SignInputUtil.signMsg(plugin, "messages.sign_input_disappeared",
+                                "&#ff4444Sign disappeared."));
                         return;
                     }
                     try {
                         player.openSign((Sign) now.getState());
                     } catch (Throwable t) {
                         SignInputUtil.cleanupAndRemove(player, plugin, true);
-                        player.sendMessage(Utils.formatColors("&#ff4444Failed to open sign input."));
+                        player.sendMessage(SignInputUtil.signMsg(plugin, "messages.sign_input_open_failed",
+                                "&#ff4444Failed to open sign input."));
                     }
                 }, 1L);
             });
+        }
+
+        private static String signMsg(JavaPlugin plugin, String path, String def) {
+            if (plugin instanceof DonutOrder donut) {
+                return donut.cfg().msg(path, def);
+            }
+            return Utils.formatColors(def);
         }
 
         public static void openFromConfig(JavaPlugin plugin, Player player, ConfigurationSection section,

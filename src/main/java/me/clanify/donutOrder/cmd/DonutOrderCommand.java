@@ -13,8 +13,6 @@ package me.clanify.donutOrder.cmd;
 import java.util.ArrayList;
 import java.util.List;
 import me.clanify.donutOrder.DonutOrder;
-import me.clanify.donutOrder.Utils;
-import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -31,13 +29,12 @@ public class DonutOrderCommand
 
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
         if (args.length == 0) {
-            sender.sendMessage(Utils.formatColors(pl.cfg().cfg().getString("messages.usage", "&cUsage: /orders")));
+            sender.sendMessage(pl.cfg().msg("messages.usage", "&cUsage: /orders"));
             return true;
         }
         if (args[0].equalsIgnoreCase("reload")) {
             if (!sender.hasPermission("donutorder.admin")) {
-                sender.sendMessage(
-                        Utils.formatColors(pl.cfg().cfg().getString("messages.no_permission", "&cNo permission.")));
+                sender.sendMessage(pl.cfg().msg("messages.no_permission", "&cNo permission."));
                 return true;
             }
             this.pl.cfg().reload();
@@ -47,11 +44,10 @@ public class DonutOrderCommand
                 this.pl.ench().reload();
             }
             sender.sendMessage(
-                    Utils.formatColors(pl.lang().get("messages.reloaded", "&aDonutOrder reloaded.")));
+                    pl.cfg().msg("messages.reloaded", "&aDonutOrder reloaded."));
             return true;
         }
-        sender.sendMessage(
-                Utils.formatColors(pl.cfg().cfg().getString("messages.unknown_command", "&cUnknown subcommand.")));
+        sender.sendMessage(pl.cfg().msg("messages.unknown_command", "&cUnknown subcommand."));
         return true;
     }
 

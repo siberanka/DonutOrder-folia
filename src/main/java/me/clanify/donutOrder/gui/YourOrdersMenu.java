@@ -48,6 +48,9 @@ public class YourOrdersMenu
     private final DonutOrder pl;
     private final Player p;
     private Inventory inv;
+    // Anti-exploit: Click cooldown
+    private long lastClickTime = 0;
+    private static final long CLICK_COOLDOWN_MS = 300;
 
     public YourOrdersMenu(DonutOrder pl, Player p) {
         this.pl = pl;
@@ -59,6 +62,10 @@ public class YourOrdersMenu
     }
 
     public void open() {
+        if (this.pl.bedrock().isBedrockPlayer(this.p)) {
+            this.pl.bedrock().sendYourOrdersMenu(this.p);
+            return;
+        }
         int rows = this.pl.cfg().rows("your", 3);
         this.inv = Bukkit.createInventory((InventoryHolder) this, (int) (rows * 9),
                 (String) this.pl.cfg().title("your", "&#44b3ffOrders -> Your Orders"));
@@ -103,6 +110,12 @@ public class YourOrdersMenu
             return;
         }
         e.setCancelled(true);
+        // Anti-exploit: Click cooldown
+        long now = System.currentTimeMillis();
+        if (now - lastClickTime < CLICK_COOLDOWN_MS)
+            return;
+        lastClickTime = now;
+
         List<Order> mine = this.pl.orders().all().stream().filter(o -> o.owner.equals(this.p.getUniqueId()))
                 .filter(o -> !o.canceled).filter(o -> !o.completed || !o.storage.isEmpty()).toList();
         int slot = e.getSlot();

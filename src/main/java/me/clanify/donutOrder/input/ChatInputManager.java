@@ -16,11 +16,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import me.clanify.donutOrder.DonutOrder;
+import me.clanify.donutOrder.Utils;
 import me.clanify.donutOrder.gui.NewOrderMenu;
 import me.clanify.donutOrder.gui.OrdersMainMenu;
 import me.clanify.donutOrder.gui.SelectItemMenu;
 import me.clanify.donutOrder.util.TaskUtil;
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -94,13 +94,13 @@ public class ChatInputManager implements Listener {
         UUID u = p.getUniqueId();
         switch (pr.kind) {
             case SEARCH_MAIN: {
-                this.plugin.state().main(u).search = msg;
+                this.plugin.state().main(u).search = Utils.sanitizeSearch(msg);
                 p.sendMessage(this.plugin.cfg().msg("chat.search_set", "&aSearch set: &f" + msg));
                 new OrdersMainMenu(this.plugin, p).open();
                 break;
             }
             case SEARCH_SELECT: {
-                this.plugin.state().items(u).search = msg;
+                this.plugin.state().items(u).search = Utils.sanitizeSearch(msg);
                 p.sendMessage(this.plugin.cfg().msg("chat.search_set", "&aSearch set: &f" + msg));
                 new SelectItemMenu(this.plugin, p).open();
                 break;
@@ -115,7 +115,8 @@ public class ChatInputManager implements Listener {
                     p.sendMessage(this.plugin.cfg().msg("chat.amount_ok", "&aAmount set: &f" + amt));
                     new NewOrderMenu(this.plugin, p).open();
                 } catch (NumberFormatException ex) {
-                    p.sendMessage(ChatColor.RED + "Invalid amount.");
+                    p.sendMessage(this.plugin.cfg().msg("messages.amount_invalid",
+                            "&cInvalid amount. Please enter a whole number (e.g. 64)."));
                     new NewOrderMenu(this.plugin, p).open(); // Re-open menu on failure
                 }
                 break;
@@ -130,7 +131,8 @@ public class ChatInputManager implements Listener {
                     p.sendMessage(this.plugin.cfg().msg("chat.price_ok", "&aPrice set: &f$" + price));
                     new NewOrderMenu(this.plugin, p).open();
                 } catch (NumberFormatException ex) {
-                    p.sendMessage(ChatColor.RED + "Invalid price.");
+                    p.sendMessage(this.plugin.cfg().msg("messages.price_format_invalid",
+                            "&cInvalid price. Please enter a number (e.g. 2.5)."));
                     new NewOrderMenu(this.plugin, p).open(); // Re-open menu on failure
                 }
                 break;

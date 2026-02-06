@@ -25,6 +25,7 @@ import me.clanify.donutOrder.store.OrderManager;
 import me.clanify.donutOrder.store.PlayerStateManager;
 import me.clanify.donutOrder.store.VaultHook;
 import org.bukkit.Bukkit;
+import org.bukkit.command.PluginCommand;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.event.Listener;
@@ -42,6 +43,8 @@ public final class DonutOrder
     private OrderManager orderManager;
     private PlayerStateManager stateManager;
     private ChatInputManager chatInputManager;
+    private me.clanify.donutOrder.bedrock.BedrockManager bedrockManager;
+    private me.clanify.donutOrder.gui.MenuManager menuManager;
 
     public static DonutOrder inst() {
         return inst;
@@ -62,23 +65,39 @@ public final class DonutOrder
         this.orderManager = new OrderManager(this);
         this.stateManager = new PlayerStateManager(this);
         this.chatInputManager = new ChatInputManager(this);
+        this.bedrockManager = new me.clanify.donutOrder.bedrock.BedrockManager(this);
+        this.menuManager = new me.clanify.donutOrder.gui.MenuManager(this);
+
         Bukkit.getPluginManager().registerEvents((Listener) new MenuListener(this), (Plugin) this);
         Bukkit.getPluginManager().registerEvents((Listener) this.chatInputManager, (Plugin) this);
         Bukkit.getPluginManager().registerEvents((Listener) new Utils.SignInputUtil.SignListener(this), (Plugin) this);
-        this.getCommand("orders").setExecutor((CommandExecutor) new OrdersCommand(this));
+        PluginCommand ordersCmd = this.getCommand("orders");
+        if (ordersCmd != null) {
+            ordersCmd.setExecutor((CommandExecutor) new OrdersCommand(this));
+        } else {
+            this.getLogger().severe("Command 'orders' missing in plugin.yml. Disabling.");
+            Bukkit.getPluginManager().disablePlugin((Plugin) this);
+            return;
+        }
         DonutOrderCommand adminCmd = new DonutOrderCommand(this);
-        this.getCommand("donutorder").setExecutor((CommandExecutor) adminCmd);
-        this.getCommand("donutorder").setTabCompleter((TabCompleter) adminCmd);
+        PluginCommand donutOrderCmd = this.getCommand("donutorder");
+        if (donutOrderCmd != null) {
+            donutOrderCmd.setExecutor((CommandExecutor) adminCmd);
+            donutOrderCmd.setTabCompleter((TabCompleter) adminCmd);
+        } else {
+            this.getLogger().warning("Command 'donutorder' missing in plugin.yml.");
+        }
         this.getLogger().info("DonutOrder enabled.");
     }
 
     public void onDisable() {
         // Close all plugin GUIs to prevent item theft/loss on reload
-        for (org.bukkit.entity.Player p : Bukkit.getOnlinePlayers()) {
-            if (p.getOpenInventory() != null
-                    && p.getOpenInventory().getTopInventory().getHolder() instanceof MenuOwner) {
-                p.closeInventory();
-            }
+        // Use centralized manager
+        if (this.menuManager != null) {
+            this.menuManager.closeAll();
+        }
+        if (this.bedrockManager != null) {
+            this.bedrockManager.closeAll();
         }
 
         // Cancel all tasks to prevent background processes from running on dead plugin
@@ -126,5 +145,13 @@ public final class DonutOrder
 
     public ChatInputManager chat() {
         return this.chatInputManager;
+    }
+
+    public me.clanify.donutOrder.bedrock.BedrockManager bedrock() {
+        return this.bedrockManager;
+    }
+
+    public me.clanify.donutOrder.gui.MenuManager menus() {
+        return this.menuManager;
     }
 }

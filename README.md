@@ -166,6 +166,14 @@ Special thanks to:
 
 ## 📊 Changelog
 
+### Version 2.2.0
+- **Security & Stability Overhaul (Major Update)**:
+  - **Transaction Atomicity**: Fixed critical "item loss" exploit in delivery menus (Bedrock & Java).
+  - **Data Integrity**: Implemented `AtomicFileUtil` to prevent data corruption on server crashes.
+  - **Audit Logging**: Added `audit.log` to track all Order creations, cancellations, and deliveries.
+  - **Menu Manager**: Centralized GUI handling; safe closure on reload/disable.
+  - **Concurrency**: Reinforced thread safety for Folia support.
+
 ### Version 2.1.1
 - **Security Audit & Hardening**:
   - **Transaction Atomicity**: Strict "Validate -> Payout -> Commit" flow to prevent "Money glitch" or "Item loss".

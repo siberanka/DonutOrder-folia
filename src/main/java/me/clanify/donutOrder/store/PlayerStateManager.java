@@ -7,7 +7,7 @@
  */
 package me.clanify.donutOrder.store;
 
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
 import java.util.UUID;
 import me.clanify.donutOrder.DonutOrder;
@@ -18,8 +18,8 @@ import org.bukkit.configuration.file.FileConfiguration;
 
 public class PlayerStateManager {
     private final DonutOrder plugin;
-    private final Map<UUID, View> main = new HashMap<UUID, View>();
-    private final Map<UUID, ItemView> selectItem = new HashMap<UUID, ItemView>();
+    private final Map<UUID, View> main = new ConcurrentHashMap<UUID, View>();
+    private final Map<UUID, ItemView> selectItem = new ConcurrentHashMap<UUID, ItemView>();
 
     public PlayerStateManager(DonutOrder plugin) {
         this.plugin = plugin;
@@ -57,7 +57,13 @@ public class PlayerStateManager {
         }
         for (String puid : sv.getConfigurationSection("players").getKeys(false)) {
             ConfigurationSection iSec;
-            UUID u = UUID.fromString(puid);
+            UUID u;
+            try {
+                u = UUID.fromString(puid);
+            } catch (IllegalArgumentException ex) {
+                this.plugin.getLogger().warning("Skipping invalid player UUID in saves.yml: " + puid);
+                continue;
+            }
             ConfigurationSection vSec = sv.getConfigurationSection("players." + puid + ".main");
             if (vSec != null) {
                 View v = new View();
