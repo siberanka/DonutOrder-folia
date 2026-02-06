@@ -4,7 +4,7 @@
 
 A professional Minecraft plugin that enables players to create and manage item orders with a beautifully designed GUI system. Perfect for survival servers looking to streamline item trading and marketplace functionality.
 
-![Version](https://img.shields.io/badge/version-2.0.0-green.svg)
+![Version](https://img.shields.io/badge/version-2.1.0-green.svg)
 ![Minecraft](https://img.shields.io/badge/minecraft-1.21-blue.svg)
 ![Java](https://img.shields.io/badge/java-21-orange.svg)
 ![Folia](https://img.shields.io/badge/folia-supported-brightgreen.svg)
@@ -21,6 +21,7 @@ A professional Minecraft plugin that enables players to create and manage item o
 - **✅ Confirmation System**: Safe delivery confirmations to prevent accidental transactions
 - **🔔 Sound Effects**: Custom sound effects for enhanced user experience
 - **🛡️ Folia Support**: Full compatibility with Folia for multi-threaded server performance
+- **🌍 Localization**: Full multi-language support (en.yml, tr.yml) with configurable defaults
 - **⚙️ Highly Configurable**: Extensive configuration options for customization
 
 ---
@@ -164,6 +165,20 @@ Special thanks to:
 ---
 
 ## 📊 Changelog
+
+### Version 2.1.0
+- **Localization**:
+  - Moved ALL hardcoded messages to `lang/en.yml` and `lang/tr.yml`.
+  - Added `default-language` setting in `config.yml`.
+  - Localized GUI Titles (e.g., "{player}'s Order" adapts to language).
+- **Security & Exploits**:
+  - **Fail-Safe Mode**: New global try-catch system prevents item theft if a GUI crashes.
+  - **Reload Safety**: Automatically closes all order menus on plugin reload/disable.
+  - **Blocked Items**: Added default blocking for Bedrock, Spawners, Command Blocks, etc.
+  - **UUID Locking**: Fixed race conditions where multiple players could claim the same order.
+- **GUI Improvements**:
+  - "Item Selection" menu now uses Vanilla item names (Client-side language).
+  - "Order List" menus use consistent localized headers.
 
 ### Version 2.0.0
 - **Folia Support**: Full compatibility with Folia 1.21.11+
